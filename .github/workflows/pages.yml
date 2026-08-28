@@ -1,0 +1,51 @@
+# Tự dựng GitHub Pages mỗi lần đẩy lên `main`.
+#
+# Vì sao dùng workflow thay vì bật tay trong Settings → Pages:
+# `actions/configure-pages` với `enablement: true` TỰ BẬT Pages bằng chính
+# GITHUB_TOKEN của lượt chạy, không cần ai vào Settings bấm gì. Đổi lại là mỗi
+# lần đẩy code, trang tự cập nhật luôn — khỏi phải nhớ.
+#
+# Trang xuất bản từ THƯ MỤC GỐC: `index.html` ở gốc nạp `src/*.js`, mở là chơi.
+# Bản gộp một file vẫn nằm ở `/CozyMosaic_playable.html`.
+
+name: Xuất bản GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:        # bấm chạy tay được từ tab Actions
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Đẩy liên tiếp mấy lần thì xếp hàng, không huỷ lượt đang chạy dở —
+# huỷ giữa chừng có thể để lại trang ở trạng thái nửa vời.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v4
+
+      - name: Bật và cấu hình Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Đóng gói cả thư mục gốc
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Xuất bản
+        id: deploy
+        uses: actions/deploy-pages@v4
