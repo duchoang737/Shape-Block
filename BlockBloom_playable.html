@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0a0b18">
+<title>Block Bloom — prototype</title>
+<style>
+  :root{
+    --bg:#0a0b18; --bg2:#151833; --ink:#eef0ff; --dim:#9aa0c8;
+    --card:rgba(255,255,255,.07); --line:rgba(255,255,255,.12);
+    --accent:#ffd166;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; overflow:hidden; }
+  body{
+    background:radial-gradient(120% 90% at 50% 0%, #1d2145 0%, var(--bg) 60%);
+    color:var(--ink);
+    font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    user-select:none; -webkit-user-select:none;
+    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
+  }
+  #app{ position:fixed; inset:0; display:flex; flex-direction:column;
+        padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom); }
+
+  /* ---------------------------------------------------------------- header */
+  header{ display:flex; align-items:center; gap:8px; padding:8px 10px 6px; flex:0 0 auto; }
+  .meta{ display:flex; flex-direction:column; line-height:1.2; margin-right:auto; min-width:0; }
+  .meta b{ font-size:15px; letter-spacing:.2px; }
+  .meta span{ font-size:11.5px; color:var(--dim); white-space:nowrap;
+              overflow:hidden; text-overflow:ellipsis; }
+  .chip{ font-size:11.5px; color:var(--dim); background:var(--card);
+         border:1px solid var(--line); border-radius:999px; padding:4px 9px; white-space:nowrap; }
+  button.ic{
+    width:36px; height:36px; flex:0 0 auto; border-radius:11px; cursor:pointer;
+    background:var(--card); border:1px solid var(--line); color:var(--ink);
+    font-size:16px; display:grid; place-items:center; padding:0;
+  }
+  button.ic:active{ transform:scale(.93); }
+  button.ic.off{ opacity:.4; }
+
+  canvas{ flex:1 1 auto; width:100%; display:block; touch-action:none; }
+
+  /* --------------------------------------------------------------- banner */
+  #banner{
+    position:absolute; left:50%; transform:translate(-50%,-14px); top:56px;
+    display:none; align-items:center; gap:10px; z-index:6;
+    background:#3a1d2a; border:1px solid #ff6b6b; color:#ffd9d9;
+    border-radius:12px; padding:8px 10px 8px 12px; font-size:12.5px;
+    box-shadow:0 8px 24px rgba(0,0,0,.45);
+  }
+  #banner.on{ display:flex; animation:pop .22s ease both; }
+  #banner button{ background:#ff6b6b; color:#2a0d16; border:0; border-radius:8px;
+                  padding:5px 10px; font-weight:700; cursor:pointer; }
+  @keyframes pop{ from{ opacity:0; transform:translate(-50%,-24px);} to{ opacity:1; transform:translate(-50%,-14px);} }
+
+  #toast{
+    position:absolute; left:50%; bottom:calc(32vh + 12px); transform:translateX(-50%);
+    background:rgba(20,22,48,.95); border:1px solid var(--line); color:var(--ink);
+    border-radius:12px; padding:9px 14px; font-size:12.5px; z-index:6;
+    opacity:0; pointer-events:none; transition:opacity .18s; max-width:82vw; text-align:center;
+  }
+  #toast.on{ opacity:1; }
+
+  /* -------------------------------------------------------------- overlays */
+  .ov{ position:absolute; inset:0; z-index:10; display:none;
+       background:rgba(6,7,18,.72); backdrop-filter:blur(6px);
+       align-items:center; justify-content:center; padding:20px; }
+  .ov.on{ display:flex; }
+  .panel{
+    width:min(360px,92vw); background:linear-gradient(180deg,#1b1f42,#141733);
+    border:1px solid var(--line); border-radius:20px; padding:22px 20px;
+    text-align:center; box-shadow:0 24px 60px rgba(0,0,0,.55);
+    animation:rise .25s cubic-bezier(.2,.9,.3,1.2) both;
+  }
+  @keyframes rise{ from{ opacity:0; transform:translateY(16px) scale(.96);} to{ opacity:1; transform:none;} }
+  .panel h2{ margin:2px 0 4px; font-size:21px; }
+  .panel p{ margin:0 0 16px; color:var(--dim); font-size:13px; }
+  .row{ display:flex; gap:10px; }
+  .btn{ flex:1; padding:12px 14px; border-radius:13px; border:1px solid var(--line);
+        background:var(--card); color:var(--ink); font-size:14px; font-weight:600; cursor:pointer; }
+  .btn.primary{ background:var(--accent); color:#22201a; border-color:transparent; }
+  .btn:active{ transform:scale(.97); }
+
+  #lvGrid{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px;
+           max-height:52vh; overflow:auto; margin:6px 0 16px; padding:2px; }
+  .lv{ aspect-ratio:1; border-radius:12px; border:1px solid var(--line);
+       background:var(--card); color:var(--ink); cursor:pointer;
+       display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; }
+  .lv b{ font-size:15px; }
+  .lv span{ font-size:8.5px; color:var(--dim); }
+  .lv.cur{ border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
+  .lv.lock{ opacity:.3; cursor:default; }
+  .trophy{ font-size:40px; line-height:1; margin-bottom:6px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="meta">
+      <b id="hudLevel">Màn 1</b>
+      <span><span id="hudPic">—</span> · còn <span id="hudLeft">0 ô</span></span>
+    </div>
+    <span class="chip" id="hudTime">0:00</span>
+    <button class="ic" id="btnHint"    title="Gợi ý (H)">💡</button>
+    <button class="ic" id="btnUndo"    title="Lùi 1 nước (Ctrl+Z)">↶</button>
+    <button class="ic" id="btnRestart" title="Chơi lại (R)">⟳</button>
+    <button class="ic" id="btnLevels"  title="Chọn màn">☰</button>
+  </header>
+
+  <canvas id="cv"></canvas>
+
+  <div id="banner">
+    <span>Hết đường rồi — thế này không lấp kín được nữa.</span>
+    <button id="bannerUndo">Undo</button>
+  </div>
+  <div id="toast"></div>
+
+  <div class="ov" id="win">
+    <div class="panel">
+      <div class="trophy">🎉</div>
+      <h2 id="winPic">Hoàn thành!</h2>
+      <p id="winTime"></p>
+      <div class="row">
+        <button class="btn" id="btnAgain">Chơi lại</button>
+        <button class="btn primary" id="btnNext">Màn sau →</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ov" id="levels">
+    <div class="panel">
+      <h2>Chọn màn</h2>
+      <p>Mỗi màn là một bức tranh. Lấp kín để lộ hình.</p>
+      <div id="lvGrid"></div>
+      <div class="row"><button class="btn" id="lvClose">Đóng</button></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ==== src/pictures.js ==== */
+/* ============================================================================
+ * pictures.js — Bức tranh ẩn sau mỗi màn.
+ * ----------------------------------------------------------------------------
+ * Board là KHUNG CHỮ NHẬT KÍN. Người chơi KHÔNG thấy tranh trong lúc chơi —
+ * lấp kín xong mọi khối mới đổi màu thành bức tranh. Vì vậy ô nền ('.') cũng
+ * là ô chơi được, nó mang màu nền của tranh.
+ *
+ * `art` = ASCII grid, mỗi ký tự tra màu trong `palette`.
+ *   • Ký tự CÓ trong palette  → ô chơi được, mang màu đó.
+ *   • Ký tự KHÔNG có trong palette → ô khoét (ngoài board).
+ *     Bỏ '.' khỏi palette là quay lại kiểu board-silhouette của bản trước.
+ *
+ * LUẬT KHI VẼ TRANH MỚI:
+ *   1. Mọi hàng phải dài BẰNG NHAU.
+ *   2. Khung 13×13 = 169 ô ≈ 45-60 khối ≈ 1-2 phút. Đổi cỡ thì cân lại.
+ *   3. Vì cả khung đều lấp được, art thoải mái có chi tiết 1 ô (mắt, râu…) —
+ *      ràng buộc "không có gai 1 ô" của bản silhouette KHÔNG còn áp dụng.
+ * ==========================================================================*/
+window.PICTURES = [
+
+  { id:'mushroom', name:'Cây nấm',
+    palette:{ '.':'#7fd4f0', r:'#e8493f', w:'#fff1dd', s:'#f2d5b3', g:'#4a8f3c' },
+    art:[
+      ".............",
+      "....rrrrr....",
+      "..rrrrrrrrr..",
+      ".rrwwrrrrrrr.",
+      ".rrwwrrrwwrr.",
+      "rrrrrrrrwwrrr",
+      "rrrrrrrrrrrrr",
+      ".wwwwwwwwwww.",
+      "....sssss....",
+      "....sssss....",
+      "....sssss....",
+      "ggggggggggggg",
+      "ggggggggggggg"
+    ] },
+
+  { id:'chick', name:'Gà con',
+    palette:{ '.':'#bfe9ff', y:'#ffd23f', k:'#3a2c14', o:'#f78c2a' },
+    art:[
+      ".............",
+      "....yyyyy....",
+      "...yyyyyyy...",
+      "...ykyyyky...",
+      "...ykyyyky...",
+      "...yyyoyyy...",
+      "...yyyyyyy...",
+      "..yyyyyyyyy..",
+      ".yyyyyyyyyyy.",
+      ".yyyyyyyyyyy.",
+      "..yyyyyyyyy..",
+      "....o...o....",
+      "...ooo.ooo..."
+    ] },
+
+  { id:'cat', name:'Mèo',
+    palette:{ '.':'#2f2a4a', o:'#f0932b', k:'#2b2118', p:'#ff9ff3' },
+    art:[
+      ".oo.......oo.",
+      ".ooo.....ooo.",
+      "..ooooooooo..",
+      ".ooooooooooo.",
+      ".ookooooookoo",
+      ".ooooooooooo.",
+      ".ooooopooooo.",
+      ".ooooooooooo.",
+      "..ooooooooo..",
+      "...ooooooo...",
+      "...ooooooo...",
+      "..ooooooooo..",
+      "..ooooooooo.."
+    ] },
+
+  { id:'star', name:'Ngôi sao',
+    palette:{ '.':'#1b1f45', y:'#ffc93c' },
+    art:[
+      "......y......",
+      "......y......",
+      ".....yyy.....",
+      ".....yyy.....",
+      "yyyyyyyyyyyyy",
+      ".yyyyyyyyyyy.",
+      "..yyyyyyyyy..",
+      "..yyyyyyyyy..",
+      "..yyy...yyy..",
+      ".yyy.....yyy.",
+      ".yy.......yy.",
+      "yy.........yy",
+      "............."
+    ] },
+
+  { id:'heart', name:'Trái tim',
+    palette:{ '.':'#ffe3ec', r:'#ff4d6d', w:'#ffd6e0' },
+    art:[
+      ".............",
+      "..rrr...rrr..",
+      ".rwwrr.rrrrr.",
+      ".rwwrrrrrrrr.",
+      "rrrrrrrrrrrrr",
+      "rrrrrrrrrrrrr",
+      ".rrrrrrrrrrr.",
+      "..rrrrrrrrr..",
+      "...rrrrrrr...",
+      "....rrrrr....",
+      ".....rrr.....",
+      "......r......",
+      "............."
+    ] },
+
+  { id:'flower', name:'Bông hoa',
+    palette:{ '.':'#8fdcf2', p:'#ff6b9d', y:'#ffd23f', g:'#3fa34d' },
+    art:[
+      ".............",
+      "....ppppp....",
+      "...ppppppp...",
+      "..pppyyyppp..",
+      "..ppyyyyypp..",
+      "..pppyyyppp..",
+      "...ppppppp...",
+      "....ppppp....",
+      "......g......",
+      "...gg.g.gg...",
+      "..ggg.g.ggg..",
+      "......g......",
+      "ggggggggggggg"
+    ] },
+
+  { id:'butterfly', name:'Con bướm',
+    palette:{ '.':'#dff3e3', b:'#4d96ff', r:'#ff6b6b', c:'#6b4f2a' },
+    art:[
+      ".....c.c.....",
+      ".bb.......bb.",
+      "bbbb.....bbbb",
+      "bbbbb.c.bbbbb",
+      "bbbbbbcbbbbbb",
+      ".bbbbbcbbbbb.",
+      "..bbbbcbbbb..",
+      "..rrrrcrrrr..",
+      ".rrrrrcrrrrr.",
+      "rrrrrrcrrrrrr",
+      "rrrrr.c.rrrrr",
+      ".rrr..c..rrr.",
+      "..r.......r.."
+    ] },
+
+  { id:'rocket', name:'Tên lửa',
+    palette:{ '.':'#141733', w:'#eef1f8', c:'#4dd0e1', r:'#ef476f', o:'#ffa62b' },
+    art:[
+      "......w......",
+      ".....www.....",
+      "....wwwww....",
+      "....wcccw....",
+      "....wcccw....",
+      "....wwwww....",
+      "...rwwwwwr...",
+      "..rrwwwwwrr..",
+      "..r.wwwww.r..",
+      "....w...w....",
+      ".....ooo.....",
+      "....ooooo....",
+      ".....ooo....."
+    ] }
+
+];
+
+</script>
+<script>
+/* ==== src/shapes.js ==== */
+/* ============================================================================
+ * shapes.js — Bộ khối CỐ ĐỊNH HƯỚNG.
+ * ----------------------------------------------------------------------------
+ * Game KHÔNG có xoay/lật. Vì vậy mỗi hướng xoay là MỘT khối riêng, có màu
+ * riêng, có ô riêng trên deck. Người chơi chỉ việc kéo đúng khối mình cần.
+ *
+ * `cells` luôn được chuẩn hoá: minRow = 0, minCol = 0, và SẮP XẾP theo thứ tự
+ * quét (row, rồi col). Thứ tự này là bắt buộc — solver dùng cells[0] làm neo.
+ * ==========================================================================*/
+(function(){
+
+  const raw = {
+    // --- 2 ô ---------------------------------------------------------------
+    d_h : { cells:[[0,0],[0,1]],                     color:'#ffb703', name:'Domino —' },
+    d_v : { cells:[[0,0],[1,0]],                     color:'#fb8500', name:'Domino |' },
+    // --- 3 ô thẳng ---------------------------------------------------------
+    i3h : { cells:[[0,0],[0,1],[0,2]],               color:'#48cae4', name:'I3 —' },
+    i3v : { cells:[[0,0],[1,0],[2,0]],               color:'#4361ee', name:'I3 |' },
+    // --- 3 ô góc (4 hướng) -------------------------------------------------
+    l3a : { cells:[[0,0],[0,1],[1,0]],               color:'#80ed99', name:'Góc ┌' },
+    l3b : { cells:[[0,0],[0,1],[1,1]],               color:'#2ec4b6', name:'Góc ┐' },
+    l3c : { cells:[[0,0],[1,0],[1,1]],               color:'#b388eb', name:'Góc └' },
+    l3d : { cells:[[0,1],[1,0],[1,1]],               color:'#e56b9f', name:'Góc ┘' },
+    // --- 4 ô ---------------------------------------------------------------
+    o4  : { cells:[[0,0],[0,1],[1,0],[1,1]],         color:'#ef476f', name:'Vuông' },
+    t4u : { cells:[[0,1],[1,0],[1,1],[1,2]],         color:'#ffd166', name:'T ▲' },
+    t4d : { cells:[[0,0],[0,1],[0,2],[1,1]],         color:'#06d6a0', name:'T ▼' },
+    t4l : { cells:[[0,1],[1,0],[1,1],[2,1]],         color:'#118ab2', name:'T ◀' },
+    t4r : { cells:[[0,0],[1,0],[1,1],[2,0]],         color:'#ff7b54', name:'T ▶' },
+    i4h : { cells:[[0,0],[0,1],[0,2],[0,3]],         color:'#9b5de5', name:'I4 —' },
+    i4v : { cells:[[0,0],[1,0],[2,0],[3,0]],         color:'#00bbf9', name:'I4 |' },
+    s4h : { cells:[[0,1],[0,2],[1,0],[1,1]],         color:'#f15bb5', name:'S —' },
+    z4h : { cells:[[0,0],[0,1],[1,1],[1,2]],         color:'#c9ad3a', name:'Z —' },
+    s4v : { cells:[[0,0],[1,0],[1,1],[2,1]],         color:'#8ac926', name:'S |' },
+    z4v : { cells:[[0,1],[1,0],[1,1],[2,0]],         color:'#e07a5f', name:'Z |' }
+  };
+
+  const SHAPES = {};
+  for(const id in raw){
+    const s = raw[id];
+    const cells = s.cells.map(c=>[c[0],c[1]]).sort((a,b)=> a[0]-b[0] || a[1]-b[1]);
+    const minR = Math.min(...cells.map(c=>c[0])), minC = Math.min(...cells.map(c=>c[1]));
+    const norm = cells.map(c=>[c[0]-minR, c[1]-minC]).sort((a,b)=> a[0]-b[0] || a[1]-b[1]);
+    SHAPES[id] = {
+      id, name:s.name, color:s.color, cells:norm,
+      size: norm.length,
+      h: Math.max(...norm.map(c=>c[0]))+1,
+      w: Math.max(...norm.map(c=>c[1]))+1
+    };
+  }
+
+  /* Bậc thang độ khó: palette càng về sau càng nhiều hướng khác nhau
+   * → deck dài hơn, phải nhìn kỹ hơn, NHƯNG không có bẫy: khối nhỏ luôn còn. */
+  const TIERS = [
+    ['d_h','d_v','l3a','l3b','l3c','l3d','o4'],
+    ['d_h','d_v','l3a','l3b','l3c','l3d','o4','i3h','i3v'],
+    ['d_h','d_v','l3a','l3b','l3c','l3d','o4','i3h','i3v','t4u','t4d'],
+    ['d_h','d_v','l3a','l3b','l3c','l3d','o4','i3h','i3v','t4u','t4d','t4l','t4r'],
+    ['d_h','d_v','l3a','l3b','l3c','l3d','o4','i3h','i3v','t4u','t4d','t4l','t4r','i4h','i4v'],
+    ['d_h','d_v','l3a','l3b','l3c','l3d','o4','i3h','i3v','t4u','t4d','t4l','t4r','i4h','i4v','s4h','z4h'],
+    ['d_h','d_v','l3a','l3b','l3c','l3d','o4','i3h','i3v','t4u','t4d','t4l','t4r','i4h','i4v','s4h','z4h','s4v','z4v']
+  ];
+
+  window.SHAPES = SHAPES;
+  window.SHAPE_TIERS = TIERS;
+  window.MIN_SHAPE_SIZE = 2;
+})();
+
+</script>
+<script>
+/* ==== src/gen.js ==== */
+/* ============================================================================
+ * gen.js — Sinh màn & solver.
+ * ----------------------------------------------------------------------------
+ * Ý tưởng cốt lõi: KHÔNG bốc đại một bộ khối rồi cầu cho nó vừa. Thay vào đó
+ * ta LÁT KÍN bức tranh trước bằng solver ngẫu nhiên, rồi lấy chính kết quả lát
+ * đó làm deck. Vì vậy:
+ *   • Màn nào cũng CHẮC CHẮN giải được.
+ *   • Tổng ô của deck = đúng số ô của board (không thừa, không thiếu).
+ *   • Thường có RẤT NHIỀU lời giải khác ⇒ "dài chứ không khó".
+ *
+ * Cùng một solver được dùng lại lúc chơi để (a) gợi ý nước tiếp theo, và
+ * (b) phát hiện sớm khi thế cờ đã hết đường ⇒ mời người chơi Undo.
+ * ==========================================================================*/
+(function(){
+  const SHAPES = window.SHAPES;
+  const NB = [[-1,0],[1,0],[0,-1],[0,1]];
+
+  function mulberry32(a){
+    return function(){
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  /* Mask từ bức tranh: occ[i]=1 nghĩa là ô KHÔNG dùng được (ngoài board).
+   * Ký tự có màu trong palette ⇒ ô chơi được. Vì tranh nào cũng khai báo màu
+   * cho '.', board hiện tại là KHUNG CHỮ NHẬT KÍN. Bỏ '.' khỏi palette của một
+   * tranh là tranh đó quay lại kiểu board-silhouette. */
+  function buildMask(pic){
+    const rows = pic.art.length, cols = pic.art[0].length;
+    const occ = new Uint8Array(rows*cols);
+    const colorAt = new Array(rows*cols).fill(null);
+    let playable = 0;
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+      const ch = pic.art[r][c], i = r*cols+c;
+      const col = pic.palette[ch];
+      if(col == null){ occ[i] = 1; }
+      else { colorAt[i] = col; playable++; }
+    }
+    return { rows, cols, occ, colorAt, playable };
+  }
+
+  /* Chọn `want` khối trong lời giải làm KHỐI ĐẶT SẴN, rải đều khắp board.
+   * Nới dần bán kính tối thiểu cho tới khi đủ số. */
+  function pickSpread(placements, want, cols, rnd){
+    const cen = placements.map(function(p, i){
+      let sr = 0, sc = 0;
+      for(let k=0;k<p.idxs.length;k++){ sr += (p.idxs[k]/cols)|0; sc += p.idxs[k]%cols; }
+      return { i:i, r:sr/p.idxs.length, c:sc/p.idxs.length, taken:false };
+    });
+    for(let i=cen.length-1;i>0;i--){
+      const j = (rnd()*(i+1))|0, t = cen[i]; cen[i] = cen[j]; cen[j] = t;
+    }
+    const chosen = [];
+    for(let d=4.5; d>=0 && chosen.length<want; d-=0.5){
+      for(let q=0;q<cen.length && chosen.length<want;q++){
+        const a = cen[q];
+        if(a.taken) continue;
+        let ok = true;
+        for(let m=0;m<chosen.length;m++){
+          const b = chosen[m];
+          if(Math.sqrt((a.r-b.r)*(a.r-b.r) + (a.c-b.c)*(a.c-b.c)) < d){ ok = false; break; }
+        }
+        if(ok){ a.taken = true; chosen.push(a); }
+      }
+    }
+    return chosen.map(function(a){ return placements[a.i]; });
+  }
+
+  /* Ô `cellIdx` còn khối nào phủ nổi không? Quét mọi shape còn hàng × mọi cách
+   * neo. Đây là phép cắt tỉa mạnh hơn hẳn kiểu "ô trống bị cô lập": một ô có
+   * đủ hàng xóm trống vẫn có thể không khối nào lọt vừa. */
+  function coverable(occ, rows, cols, counts, cellIdx){
+    const r = (cellIdx/cols)|0, c = cellIdx%cols;
+    for(const id in counts){
+      if(counts[id] <= 0) continue;
+      const sh = SHAPES[id];
+      for(let a=0;a<sh.cells.length;a++){
+        const dr = r - sh.cells[a][0], dc = c - sh.cells[a][1];
+        let ok = true;
+        for(let t=0;t<sh.cells.length;t++){
+          const rr = sh.cells[t][0]+dr, cc = sh.cells[t][1]+dc;
+          if(rr<0||rr>=rows||cc<0||cc>=cols || occ[rr*cols+cc]){ ok = false; break; }
+        }
+        if(ok) return true;
+      }
+    }
+    return false;
+  }
+
+  /* Sau khi đặt khối: nếu một ô trống KỀ chỗ vừa đặt đã hết đường được phủ thì
+   * nhánh này chết, quay lui ngay. Chỉ cần soát các ô kề — ô ở xa không đổi. */
+  function makesDeadHole(occ, rows, cols, counts, idxs){
+    for(let t=0;t<idxs.length;t++){
+      const k = idxs[t], r = (k/cols)|0, c = k%cols;
+      for(let n=0;n<4;n++){
+        const rr = r+NB[n][0], cc = c+NB[n][1];
+        if(rr<0||rr>=rows||cc<0||cc>=cols) continue;
+        const j = rr*cols+cc;
+        if(occ[j]) continue;
+        if(!coverable(occ, rows, cols, counts, j)) return true;
+      }
+    }
+    return false;
+  }
+
+  /* Lát kín phần còn trống của `occ0` bằng đúng số khối trong `counts0`.
+   * Trả về {status:'solved'|'unsat'|'unknown', placements:[{id, idxs}]}.
+   * 'unknown' = hết ngân sách tìm kiếm, KHÔNG kết luận gì cả. */
+  function solve(occ0, rows, cols, counts0, opts){
+    opts = opts || {};
+    const budget   = opts.budget || 80000;
+    const timeMs   = opts.timeMs || 0;
+    const rng      = opts.rng || null;
+    const deadline = timeMs ? (nowMs() + timeMs) : Infinity;
+
+    const occ    = Uint8Array.from(occ0);
+    const counts = Object.assign({}, counts0);
+    const ids    = Object.keys(counts).sort((a,b)=> SHAPES[b].size - SHAPES[a].size || (a<b?-1:1));
+    const N      = rows*cols;
+    const out    = [];
+    let nodes = 0, ranOut = false;
+
+    /* Khoa sap xep tinh TRUOC roi moi sort. Neu goi rng() ngay trong comparator
+     * thi ket qua phu thuoc thuat toan sort cua tung engine => mat tinh tat dinh. */
+    function order(){
+      if(!rng) return ids;
+      const a = ids.map(function(id){ return [id, SHAPES[id].size + rng()*2.6]; });
+      a.sort(function(x,y){ return y[1] - x[1]; });
+      return a.map(function(x){ return x[0]; });
+    }
+
+    function rec(from){
+      if(++nodes > budget || nowMs() > deadline){ ranOut = true; return false; }
+      let i = from; while(i < N && occ[i]) i++;
+      if(i >= N) return true;
+      const r = (i/cols)|0, c = i%cols;
+      const list = order();
+      for(let q=0;q<list.length;q++){
+        const id = list[q];
+        if(counts[id] <= 0) continue;
+        const sh = SHAPES[id], a0 = sh.cells[0];
+        const dr = r - a0[0], dc = c - a0[1];
+        let ok = true; const idxs = [];
+        for(let t=0;t<sh.cells.length;t++){
+          const rr = sh.cells[t][0] + dr, cc = sh.cells[t][1] + dc;
+          if(rr<0||rr>=rows||cc<0||cc>=cols){ ok = false; break; }
+          const k = rr*cols+cc;
+          if(occ[k]){ ok = false; break; }
+          idxs.push(k);
+        }
+        if(!ok) continue;
+        for(let t=0;t<idxs.length;t++) occ[idxs[t]] = 1;
+        counts[id]--;
+        if(!makesDeadHole(occ, rows, cols, counts, idxs)){
+          out.push({ id, idxs: idxs.slice() });
+          if(rec(i+1)) return true;
+          out.pop();
+        }
+        for(let t=0;t<idxs.length;t++) occ[idxs[t]] = 0;
+        counts[id]++;
+        if(ranOut) return false;
+      }
+      return false;
+    }
+
+    const solved = rec(0);
+    return {
+      status: solved ? 'solved' : (ranOut ? 'unknown' : 'unsat'),
+      placements: solved ? out.slice() : [],
+      nodes
+    };
+  }
+
+  let _now = (typeof performance !== 'undefined' && performance.now)
+    ? function(){ return performance.now(); } : function(){ return Date.now(); };
+  function nowMs(){ return _now(); }
+
+  /* Sinh 1 màn. index 0-based.
+   * Một phần lời giải được giữ lại làm KHỐI ĐẶT SẴN trên board (như game gốc):
+   * chúng khoá cứng, không kéo được, và chính là thứ tạo cấu trúc cho khung
+   * chữ nhật trống trơn. Phần còn lại của lời giải trở thành deck ⇒ màn vẫn
+   * chắc chắn giải được. */
+  function generateLevel(index, seedOverride){
+    const pics = window.PICTURES;
+    const pic  = pics[index % pics.length];
+    const tierIdx = Math.min(window.SHAPE_TIERS.length-1, Math.floor(index/2));
+    const tier = window.SHAPE_TIERS[tierIdx];
+    const mask = buildMask(pic);
+    const baseSeed = (seedOverride != null) ? seedOverride : (index*2654435761 + 12345) >>> 0;
+
+    const unlimited = {};
+    for(let k=0;k<tier.length;k++) unlimited[tier[k]] = 999;
+
+    // màn đầu đặt sẵn nhiều hơn (đỡ ngợp), càng về sau càng ít
+    const fixedRatio = Math.max(0.15, 0.26 - 0.015*tierIdx);
+
+    for(let attempt=0; attempt<40; attempt++){
+      const seed = (baseSeed + attempt*7919) >>> 0;
+      const res = solve(mask.occ, mask.rows, mask.cols, unlimited,
+                        { rng: mulberry32(seed), budget: 500000 });
+      if(res.status !== 'solved') continue;
+
+      const want  = Math.max(2, Math.round(res.placements.length * fixedRatio));
+      const fixed = pickSpread(res.placements, want, mask.cols, mulberry32((seed ^ 0x9e3779b9)>>>0));
+      const isFixed = new Set(fixed);
+
+      const counts = {}, playerSolution = [];
+      for(let k=0;k<res.placements.length;k++){
+        const p = res.placements[k];
+        if(isFixed.has(p)) continue;
+        counts[p.id] = (counts[p.id]||0) + 1;
+        playerSolution.push({ shapeId:p.id, idxs:p.idxs.slice() });
+      }
+      const playerPieces = playerSolution.length;
+      const deck = Object.keys(counts)
+        .sort(function(a,b){ return SHAPES[a].size - SHAPES[b].size || (a<b?-1:1); })
+        .map(function(id){ return { shapeId:id, total:counts[id], left:counts[id] }; });
+
+      return {
+        index: index, seed: seed, tier: tierIdx,
+        picture: pic,
+        rows: mask.rows, cols: mask.cols,
+        occ: mask.occ,              // 1 = ngoài board
+        colorAt: mask.colorAt,
+        playable: mask.playable,
+        fixed: fixed.map(function(p){ return { shapeId:p.id, idxs:p.idxs.slice() }; }),
+        /* Lời giải tham chiếu (phần người chơi phải đặt). Dùng cho Gợi ý: DFS
+         * exact-cover từ thế cờ đầu màn có thể quá nặng, nhưng lời giải này thì
+         * lúc nào cũng sẵn — chỉ cần lọc lấy nước còn đặt vừa. */
+        solution: playerSolution,
+        deck: deck,
+        pieceCount: playerPieces
+      };
+    }
+    throw new Error('generateLevel: không lát nổi tranh "'+pic.id+'" — kiểm tra lại mask (§pictures.js).');
+  }
+
+  window.LevelGen = { mulberry32, buildMask, solve, generateLevel };
+})();
+
+</script>
+<script>
+/* ==== src/render.js ==== */
+/* ============================================================================
+ * render.js — Layout + vẽ. Canvas chỉ lo BOARD và DECK; header/overlay là DOM.
+ * ==========================================================================*/
+(function(){
+  const L = {
+    w:0, h:0, cell:0, bx:0, by:0, boardW:0, boardH:0,
+    deckY:0, deckH:0, tiles:[], tileW:66, tileGap:8, padX:12,
+    contentW:0, maxScroll:0, deckRows:1
+  };
+  window.L = L;
+
+  let cv, ctx;
+  function bind(canvas){ cv = canvas; ctx = canvas.getContext('2d'); }
+
+  /* ---------------------------------------------------------------- layout */
+  function layout(){
+    const G = window.G;
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    const w = cv.clientWidth, h = cv.clientHeight;
+    if(cv.width !== Math.round(w*dpr) || cv.height !== Math.round(h*dpr)){
+      cv.width  = Math.round(w*dpr);
+      cv.height = Math.round(h*dpr);
+    }
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    L.w = w; L.h = h;
+
+    if(!G || !G.level){ L.deckH = Math.round(h*0.19); L.deckY = h - L.deckH; return; }
+
+    /* ---- khay (deck): 1 hàng nếu ô còn đủ to, không thì XUỐNG 2 HÀNG.
+     * Cuộn ngang chỉ dành cho deck thật sự dài — cuộn 15px thì cấn hơn là
+     * không cuộn. Board bị giới hạn bởi CHIỀU NGANG trên đa số máy nên khay
+     * cao thêm gần như không lấy mất ô nào của board. */
+    L.tileGap = 6; L.padX = 10;
+    const n = Math.max(1, G.deck.length);
+    const MINW = 48, MAXW = 68;
+    const fitFor = function(cols){ return (w - 2*L.padX - (cols-1)*L.tileGap)/cols; };
+
+    let deckRows = 1, colsCount = n;
+    if(Math.floor(fitFor(n)) < MINW){ deckRows = 2; colsCount = Math.ceil(n/2); }
+    L.tileW = Math.max(MINW, Math.min(MAXW, Math.floor(fitFor(colsCount))));
+    L.deckRows = deckRows;
+
+    L.deckH = deckRows === 1
+      ? Math.round(Math.max(96,  Math.min(148, h*0.19)))
+      : Math.round(Math.max(150, Math.min(240, h*0.30)));
+    L.deckY = h - L.deckH;
+
+    const vpad  = 8;
+    const tileH = Math.floor((L.deckH - vpad*(deckRows+1)) / deckRows);
+    L.tiles = G.deck.map(function(d,i){
+      const col = i % colsCount, row = (i/colsCount)|0;
+      return { i:i,
+               x: L.padX + col*(L.tileW+L.tileGap),
+               y: L.deckY + vpad + row*(tileH+vpad),
+               w: L.tileW, h: tileH };
+    });
+    L.contentW = L.padX*2 + colsCount*(L.tileW+L.tileGap) - L.tileGap;
+
+    // ---- board lấy phần còn lại
+    const availH = L.deckY - 12, availW = w - 16;
+    L.cell = Math.max(10, Math.floor(Math.min(availW/G.cols, (availH-12)/G.rows)));
+    L.boardW = L.cell*G.cols; L.boardH = L.cell*G.rows;
+    L.bx = Math.round((w - L.boardW)/2);
+    L.by = Math.round(6 + (availH - L.boardH)/2);
+    L.maxScroll = Math.max(0, L.contentW - w);
+    if(L.maxScroll === 0){
+      const off = Math.round((w - (L.contentW - L.padX*2))/2) - L.padX;
+      L.tiles.forEach(function(t){ t.x += off; });
+    }
+    if(G.deckScroll > L.maxScroll) G.deckScroll = L.maxScroll;
+    if(G.deckScroll < 0) G.deckScroll = 0;
+  }
+
+  /* ------------------------------------------------------------- hit-test */
+  function deckTileAt(px, py){
+    const G = window.G;
+    if(py < L.deckY) return -1;
+    const x = px + G.deckScroll;
+    for(let k=0;k<L.tiles.length;k++){
+      const t = L.tiles[k];
+      if(x >= t.x && x <= t.x+t.w && py >= t.y && py <= t.y+t.h) return t.i;
+    }
+    return -1;
+  }
+  function boardIndexAt(px, py){
+    const G = window.G;
+    const c = Math.floor((px - L.bx)/L.cell), r = Math.floor((py - L.by)/L.cell);
+    if(r<0||r>=G.rows||c<0||c>=G.cols) return -1;
+    const i = r*G.cols+c;
+    return G.occ[i] ? -1 : i;
+  }
+
+  /* --------------------------------------------------------------- colours */
+  function hexRGB(h){
+    h = h.replace('#','');
+    if(h.length===3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+  }
+  function rgba(hex, a){ const c = hexRGB(hex); return 'rgba('+c[0]+','+c[1]+','+c[2]+','+a+')'; }
+  /* Trả về HEX chứ không phải 'rgb(...)': kết quả của mix() còn được đem đi
+   * mix() tiếp (màu khối đặt sẵn → màu tranh), mà hexRGB() chỉ đọc được hex.
+   * Trả 'rgb(...)' thì vòng thứ hai ra NaN, canvas lặng lẽ giữ fillStyle cũ và
+   * ô sẽ ăn màu của ô vẽ ngay trước nó. */
+  function mix(a, b, t){
+    const A = hexRGB(a), B = hexRGB(b);
+    const h = function(n){ return Math.round(n).toString(16).padStart(2,'0'); };
+    return '#' + h(A[0]+(B[0]-A[0])*t) + h(A[1]+(B[1]-A[1])*t) + h(A[2]+(B[2]-A[2])*t);
+  }
+
+  /* ------------------------------------------------------------ primitives */
+  function rr(x,y,w,h,r){
+    r = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  /* Ô khối "cổ điển": vát sáng trên, tối dưới, viền bo. */
+  function blockCell(x, y, s, color, gapK){
+    const g = s*(gapK==null?0.055:gapK), r = s*0.2;
+    const X = x+g, Y = y+g, S = s-2*g;
+    if(S <= 0) return;
+    rr(X,Y,S,S,r); ctx.fillStyle = color; ctx.fill();
+    ctx.save(); ctx.clip();
+    const gr = ctx.createLinearGradient(X,Y,X,Y+S);
+    gr.addColorStop(0,   'rgba(255,255,255,.36)');
+    gr.addColorStop(0.42,'rgba(255,255,255,.07)');
+    gr.addColorStop(0.58,'rgba(0,0,0,0)');
+    gr.addColorStop(1,   'rgba(0,0,0,.27)');
+    ctx.fillStyle = gr; ctx.fillRect(X,Y,S,S);
+    ctx.restore();
+    const lw = Math.max(1, s*0.045);
+    ctx.lineWidth = lw; ctx.strokeStyle = 'rgba(255,255,255,.20)';
+    rr(X+lw/2, Y+lw/2, S-lw, S-lw, r*0.9); ctx.stroke();
+  }
+
+  function slotCell(x, y, s, tint){
+    const g = s*0.075, r = s*0.19;
+    rr(x+g, y+g, s-2*g, s-2*g, r);
+    ctx.fillStyle = tint || 'rgba(255,255,255,.05)';
+    ctx.fill();
+    ctx.lineWidth = Math.max(1, s*0.03);
+    ctx.strokeStyle = 'rgba(255,255,255,.05)';
+    ctx.stroke();
+  }
+
+  /* ----------------------------------------------------------------- draw */
+  function draw(now){
+    const G = window.G;
+    layout();
+    ctx.clearRect(0,0,L.w,L.h);
+    if(!G || !G.level) return;
+    drawBoard(now);
+    drawDeck(now);
+    if(G.drag) drawDragged(now);
+    if(G.sparks.length) drawSparks(now);
+  }
+
+  /* Khối ĐẶT SẴN: cùng hình khối bình thường nhưng dìm về tông đá xám, thêm
+   * chấm rivet ở giữa ⇒ đọc ngay là "của board, không kéo được", và tuyệt đối
+   * không rò rỉ màu bức tranh. Khi thắng thì chúng cũng đổi màu như mọi ô. */
+  const FIXED_TONE = '#5a6183';
+  function fixedColor(shapeColor){ return mix(shapeColor, FIXED_TONE, 0.74); }
+
+  function drawBoard(now){
+    const G = window.G, cell = L.cell;
+    const rev = G.revealT;
+    const ease = rev<=0 ? 0 : (rev>=1 ? 1 : 1-Math.pow(1-rev,3));
+
+    // khung board
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 6;
+    ctx.fillStyle = 'rgba(10,12,26,.62)';
+    if(G.level.playable === G.rows*G.cols){
+      rr(L.bx-5, L.by-5, L.boardW+10, L.boardH+10, 14); ctx.fill();
+    } else {
+      for(let i=0;i<G.occ.length;i++){
+        if(G.occ[i]) continue;
+        const r=(i/G.cols)|0, c=i%G.cols;
+        ctx.fillRect(L.bx+c*cell, L.by+r*cell, cell, cell);
+      }
+    }
+    ctx.restore();
+
+    for(let i=0;i<G.occ.length;i++){
+      if(G.occ[i]) continue;
+      const r=(i/G.cols)|0, c=i%G.cols;
+      const x=L.bx+c*cell, y=L.by+r*cell;
+      const pid = G.fill[i];
+      if(pid < 0){
+        slotCell(x, y, cell, G.showGhost ? rgba(G.colorAt[i], 0.16) : null);
+      } else {
+        const p = G.placements.get(pid);
+        const base = p.fixed ? fixedColor(p.color) : p.color;
+        const col = ease>0 ? mix(base, G.colorAt[i], ease) : base;
+        blockCell(x, y, cell, col, 0.055*(1-ease) + 0.004*ease);
+        if(p.fixed && ease < 0.5){
+          ctx.save();
+          ctx.globalAlpha = 0.3*(1-ease*2);
+          ctx.fillStyle = '#0d1024';
+          ctx.beginPath();
+          ctx.arc(x+cell/2, y+cell/2, Math.max(1.2, cell*0.1), 0, Math.PI*2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+    }
+
+    // gợi ý: nhấp nháy một nước đặt hợp lệ
+    if(G.hint && now < G.hint.until){
+      ctx.save();
+      ctx.globalAlpha = 0.45 + 0.35*Math.sin(now/150);
+      for(let k=0;k<G.hint.idxs.length;k++){
+        const i = G.hint.idxs[k], r=(i/G.cols)|0, c=i%G.cols;
+        blockCell(L.bx+c*cell, L.by+r*cell, cell, G.hint.color, 0.055);
+      }
+      ctx.restore();
+    }
+
+    // ghost nơi khối sẽ rơi xuống
+    if(G.drag && G.drag.snap){
+      const col = window.SHAPES[G.drag.shapeId].color;
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      for(let k=0;k<G.drag.snap.idxs.length;k++){
+        const i = G.drag.snap.idxs[k], r=(i/G.cols)|0, c=i%G.cols;
+        blockCell(L.bx+c*cell, L.by+r*cell, cell, col, 0.055);
+      }
+      ctx.restore();
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 2;
+      for(let k=0;k<G.drag.snap.idxs.length;k++){
+        const i = G.drag.snap.idxs[k], r=(i/G.cols)|0, c=i%G.cols;
+        rr(L.bx+c*cell+1.5, L.by+r*cell+1.5, cell-3, cell-3, cell*0.2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+  }
+
+  function drawDeck(now){
+    const G = window.G;
+    const gr = ctx.createLinearGradient(0, L.deckY-16, 0, L.h);
+    gr.addColorStop(0,   'rgba(12,14,32,0)');
+    gr.addColorStop(0.28,'rgba(12,14,32,.88)');
+    gr.addColorStop(1,   'rgba(9,10,24,1)');
+    ctx.fillStyle = gr; ctx.fillRect(0, L.deckY-16, L.w, L.deckH+16);
+
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, L.deckY, L.w, L.deckH); ctx.clip();
+    ctx.translate(-G.deckScroll, 0);
+
+    const hintTile = (G.hint && now < G.hint.until) ? G.hint.deckIndex : -1;
+    for(let k=0;k<L.tiles.length;k++){
+      const t = L.tiles[k], d = G.deck[t.i], sh = window.SHAPES[d.shapeId];
+      if(t.x - G.deckScroll > L.w || t.x + t.w - G.deckScroll < 0) continue;
+      const dead = d.left <= 0;
+      ctx.save();
+      ctx.globalAlpha = dead ? 0.22 : 1;
+
+      rr(t.x, t.y, t.w, t.h, 12);
+      ctx.fillStyle = (t.i===hintTile) ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.06)';
+      ctx.fill();
+      ctx.lineWidth = (t.i===hintTile) ? 2 : 1;
+      ctx.strokeStyle = (t.i===hintTile)
+        ? 'rgba(255,255,255,'+(0.5+0.4*Math.sin(now/150)).toFixed(3)+')'
+        : 'rgba(255,255,255,.10)';
+      ctx.stroke();
+
+      const pc = Math.max(6, Math.min(16, Math.floor((t.w-10)/sh.w), Math.floor((t.h-28)/sh.h)));
+      const ox = t.x + (t.w - sh.w*pc)/2;
+      const oy = t.y + 4 + (t.h - 24 - sh.h*pc)/2;
+      for(let q=0;q<sh.cells.length;q++){
+        blockCell(ox + sh.cells[q][1]*pc, oy + sh.cells[q][0]*pc, pc, sh.color, 0.06);
+      }
+
+      const label = '×'+d.left;
+      ctx.font = '700 13px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+      const tw = ctx.measureText(label).width;
+      rr(t.x + t.w - tw - 18, t.y + t.h - 22, tw + 12, 18, 9);
+      ctx.fillStyle = dead ? 'rgba(255,255,255,.14)' : rgba(sh.color, 0.92); ctx.fill();
+      ctx.fillStyle = dead ? 'rgba(255,255,255,.55)' : '#11132a';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(label, t.x + t.w - tw/2 - 12, t.y + t.h - 13);
+      ctx.restore();
+    }
+    ctx.restore();
+
+    if(L.maxScroll > 0){
+      if(G.deckScroll > 2)              edgeFade(0, 1);
+      if(G.deckScroll < L.maxScroll-2)  edgeFade(L.w, -1);
+    }
+  }
+
+  function edgeFade(x, dir){
+    const g = ctx.createLinearGradient(x, 0, x + dir*28, 0);
+    g.addColorStop(0,'rgba(9,10,24,.96)'); g.addColorStop(1,'rgba(9,10,24,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(dir>0 ? x : x-28, L.deckY, 28, L.deckH);
+  }
+
+  function drawDragged(){
+    const G = window.G, d = G.drag, sh = window.SHAPES[d.shapeId], cell = L.cell;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 7;
+    ctx.globalAlpha = d.snap ? 0.97 : 0.78;
+    for(let q=0;q<sh.cells.length;q++){
+      blockCell(d.left + sh.cells[q][1]*cell, d.top + sh.cells[q][0]*cell, cell, sh.color, 0.055);
+    }
+    ctx.restore();
+  }
+
+  function drawSparks(now){
+    const G = window.G;
+    for(let k=0;k<G.sparks.length;k++){
+      const s = G.sparks[k];
+      const t = (now - s.t0)/s.life;
+      if(t<0 || t>1) continue;
+      const x = s.x + s.vx*t, y = s.y + s.vy*t + 900*t*t;
+      ctx.save();
+      ctx.globalAlpha = (1-t)*0.95;
+      ctx.fillStyle = s.color;
+      ctx.beginPath(); ctx.arc(x, y, s.r*(1-t*0.45), 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  window.R = { bind:bind, layout:layout, draw:draw, deckTileAt:deckTileAt,
+               boardIndexAt:boardIndexAt, rgba:rgba, mix:mix };
+})();
+
+</script>
+<script>
+/* ==== src/game.js ==== */
+/* ============================================================================
+ * game.js — Trạng thái, luật, input, vòng lặp.
+ * ----------------------------------------------------------------------------
+ * LUẬT CHƠI (khác Block Wow cũ ở lớp thao tác, giữ nguyên lõi "lấp kín"):
+ *   • Khối KHÔNG xoay, KHÔNG lật. Mỗi hướng là một khối riêng trên khay.
+ *   • Kéo khối từ khay thả vào board — đúng kiểu Block Blast.
+ *   • Khay gom theo shape, mỗi ô hiện SỐ DƯ, cuộn ngang khi nhiều shape.
+ *   • Thắng khi mọi ô của board được phủ đúng 1 lần ⇒ bức tranh hiện ra.
+ *   • Gỡ khối đã đặt: kéo nó ra — miễn phí. Undo không giới hạn.
+ *   • Sau mỗi nước, solver chạy nền: nếu CHỨNG MINH ĐƯỢC thế cờ đã chết thì
+ *     báo ngay để người chơi Undo — "dài chứ không khó".
+ * ==========================================================================*/
+(function(){
+  const SHAPES = window.SHAPES;
+  const LevelGen = window.LevelGen;
+  const STORE = 'blockwow5.save';
+
+  const G = window.G = {
+    level:null, index:0,
+    rows:0, cols:0, occ:null, colorAt:null,
+    fill:null, blocked:null, placements:new Map(), nextPid:1, filled:0,
+    deck:[], deckScroll:0,
+    history:[],
+    drag:null, pending:null,
+    hint:null, stuck:false,
+    solved:false, solvedAt:0, revealT:0,
+    sparks:[],
+    startedAt:0, elapsed:0,
+    /* Bóng mờ bức tranh. MẶC ĐỊNH TẮT — người chơi không được biết trước hình
+     * gì, lấp xong mới lộ. Bật để soi lúc thiết kế: gõ `G.showGhost = true`
+     * trong console. Cố ý KHÔNG có nút bật/tắt trong game. */
+    showGhost:false,
+    unlocked:0, done:null
+  };
+
+  let cv, els = {};
+
+  /* ------------------------------------------------------------ lưu tiến độ */
+  function load(){
+    G.done = new Set();
+    try{
+      const s = JSON.parse(localStorage.getItem(STORE) || '{}');
+      G.unlocked = s.unlocked || 0;
+      (s.done || []).forEach(function(i){ G.done.add(i); });
+      return s.last || 0;
+    }catch(e){ return 0; }
+  }
+  function save(){
+    try{
+      localStorage.setItem(STORE, JSON.stringify({
+        unlocked:G.unlocked, last:G.index, done:Array.from(G.done)
+      }));
+    }catch(e){}
+  }
+
+  /* ------------------------------------------------------------- nạp màn */
+  function loadLevel(index){
+    const lv = LevelGen.generateLevel(index);
+    G.level = lv; G.index = index;
+    G.rows = lv.rows; G.cols = lv.cols;
+    G.occ = lv.occ; G.colorAt = lv.colorAt;
+    G.deck = lv.deck.map(function(d){ return { shapeId:d.shapeId, total:d.total, left:d.total }; });
+    G.fill = new Int16Array(lv.rows*lv.cols).fill(-1);
+    G.blocked = Uint8Array.from(lv.occ);
+    G.placements = new Map(); G.nextPid = 1; G.filled = 0;
+    G.history = []; G.drag = null; G.pending = null;
+    G.hint = null; G.stuck = false; G.deckScroll = 0;
+    G.solved = false; G.solvedAt = 0; G.revealT = 0; G.sparks = [];
+
+    // khối đặt sẵn — khoá cứng, không kéo được, không nằm trong deck
+    for(let k=0;k<lv.fixed.length;k++){
+      const pid = doPlace(lv.fixed[k].shapeId, lv.fixed[k].idxs.slice());
+      G.placements.get(pid).fixed = true;
+    }
+
+    G.startedAt = performance.now(); G.elapsed = 0;
+    hideOverlays();
+    syncHud();
+    save();
+  }
+
+  /* -------------------------------------------------------------- đặt / gỡ */
+  function cellsFor(shapeId, r, c){
+    const sh = SHAPES[shapeId], out = [];
+    for(let t=0;t<sh.cells.length;t++){
+      const rr = sh.cells[t][0] + r, cc = sh.cells[t][1] + c;
+      if(rr<0 || rr>=G.rows || cc<0 || cc>=G.cols) return null;
+      const i = rr*G.cols + cc;
+      if(G.blocked[i]) return null;
+      out.push(i);
+    }
+    return out;
+  }
+
+  function doPlace(shapeId, idxs){
+    const pid = G.nextPid++;
+    G.placements.set(pid, { id:pid, shapeId:shapeId, idxs:idxs, color:SHAPES[shapeId].color });
+    for(let k=0;k<idxs.length;k++){ G.fill[idxs[k]] = pid; G.blocked[idxs[k]] = 1; }
+    G.filled += idxs.length;
+    return pid;
+  }
+  function doRemove(pid){
+    const p = G.placements.get(pid);
+    if(!p) return null;
+    for(let k=0;k<p.idxs.length;k++){ G.fill[p.idxs[k]] = -1; G.blocked[p.idxs[k]] = 0; }
+    G.filled -= p.idxs.length;
+    G.placements.delete(pid);
+    return p;
+  }
+  function deckOf(shapeId){
+    for(let k=0;k<G.deck.length;k++) if(G.deck[k].shapeId === shapeId) return G.deck[k];
+    return null;
+  }
+
+  /* ---------------------------------------------------------------- undo
+   * History KHÔNG lưu pid — pid đổi mỗi lần đặt lại. Lưu Ô, rồi tra ngược ra
+   * khối đang nằm ở đó. Nhờ tính chất ngăn xếp, ô `to[0]` lúc undo luôn thuộc
+   * đúng khối của nước đi đó. */
+  function removeAt(idxs){
+    const pid = G.fill[idxs[0]];
+    if(pid >= 0) doRemove(pid);
+  }
+  function undo(){
+    const a = G.history.pop();
+    if(!a){ toast('Chưa có nước nào để lùi.'); return; }
+    if(a.type === 'place'){
+      removeAt(a.to); deckOf(a.shapeId).left++;
+    } else if(a.type === 'remove'){
+      doPlace(a.shapeId, a.from); deckOf(a.shapeId).left--;
+    } else if(a.type === 'move'){
+      removeAt(a.to); doPlace(a.shapeId, a.from);
+    }
+    G.hint = null; G.solved = false; G.revealT = 0; G.sparks = [];
+    els.win.classList.remove('on');
+    sfx('undo');
+    afterMove(false);
+  }
+  function restart(){ loadLevel(G.index); }
+
+  /* ------------------------------------------------------- sau mỗi nước đi */
+  function afterMove(allowWin){
+    syncHud();
+    if(allowWin && G.filled === G.level.playable){ win(); return; }
+    checkStuck();
+  }
+
+  function remainingCounts(){
+    const c = {};
+    for(let k=0;k<G.deck.length;k++) if(G.deck[k].left > 0) c[G.deck[k].shapeId] = G.deck[k].left;
+    return c;
+  }
+
+  /* Chỉ báo khi solver CHỨNG MINH được là hết đường. Hết ngân sách ⇒ im lặng. */
+  function checkStuck(){
+    G.stuck = false;
+    if(G.solved){ banner(false); return; }
+    const counts = remainingCounts();
+    if(!Object.keys(counts).length){ banner(false); return; }
+    const res = LevelGen.solve(G.blocked, G.rows, G.cols, counts, { budget:26000, timeMs:35 });
+    G.stuck = (res.status === 'unsat');
+    banner(G.stuck);
+  }
+
+  /* Gợi ý hai lớp.
+   * 1) Lời giải tham chiếu của màn: lọc lấy nước nào GIỜ VẪN ĐẶT VỪA. Tức thì,
+   *    và luôn có ở đầu màn — lúc DFS exact-cover còn quá nặng.
+   * 2) Người chơi đi lệch nhiều thì lớp 1 cạn; khi đó board cũng đã vơi nên
+   *    DFS chạy nhanh, gọi solver thật. */
+  function fitsNow(shapeId, idxs){
+    const d = deckOf(shapeId);
+    if(!d || d.left <= 0) return false;
+    for(let k=0;k<idxs.length;k++) if(G.blocked[idxs[k]]) return false;
+    return true;
+  }
+  function hint(){
+    if(G.solved) return;
+    const counts = remainingCounts();
+    if(!Object.keys(counts).length) return;
+
+    const ready = G.level.solution.filter(function(p){ return fitsNow(p.shapeId, p.idxs); });
+    let pick = ready.length ? ready[(Math.random()*ready.length)|0] : null;
+
+    if(!pick){
+      const res = LevelGen.solve(G.blocked, G.rows, G.cols, counts, { budget:400000, timeMs:400 });
+      if(res.status !== 'solved'){
+        toast(res.status === 'unsat'
+          ? 'Thế này không hoàn thành được nữa — bấm Undo nhé.'
+          : 'Chưa tìm ra gợi ý kịp, thử lại lần nữa.');
+        return;
+      }
+      const p = res.placements[(Math.random()*res.placements.length)|0];
+      pick = { shapeId:p.id, idxs:p.idxs };
+    }
+
+    let di = -1;
+    for(let k=0;k<G.deck.length;k++) if(G.deck[k].shapeId === pick.shapeId) di = k;
+    G.hint = { idxs:pick.idxs, color:SHAPES[pick.shapeId].color,
+               deckIndex:di, until:performance.now()+2800 };
+    scrollDeckTo(di);
+  }
+
+  function scrollDeckTo(i){
+    const L = window.L;
+    if(L.maxScroll <= 0 || i < 0 || !L.tiles[i]) return;
+    const t = L.tiles[i];
+    const target = Math.max(0, Math.min(L.maxScroll, t.x + t.w/2 - L.w/2));
+    G.deckScroll = target;
+  }
+
+  /* ---------------------------------------------------------------- thắng */
+  function win(){
+    G.solved = true; G.solvedAt = performance.now();
+    G.elapsed = (G.solvedAt - G.startedAt)/1000;
+    G.drag = null; G.pending = null; G.hint = null;
+    banner(false);
+    spawnSparks();
+    sfx('win');
+    if(G.index + 1 > G.unlocked) G.unlocked = G.index + 1;
+    G.done.add(G.index);
+    save();
+    syncHud();
+    setTimeout(showWin, 1150);
+  }
+
+  function spawnSparks(){
+    const L = window.L, now = performance.now();
+    G.sparks = [];
+    for(let k=0;k<90;k++){
+      const i = (Math.random()*G.occ.length)|0;
+      if(G.occ[i]) { k--; continue; }
+      const r=(i/G.cols)|0, c=i%G.cols;
+      const a = Math.random()*Math.PI*2, sp = 90 + Math.random()*220;
+      G.sparks.push({
+        x: L.bx + (c+0.5)*L.cell, y: L.by + (r+0.5)*L.cell,
+        vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 220,
+        r: 1.5 + Math.random()*3.2,
+        color: G.colorAt[i], t0: now + Math.random()*280, life: 900 + Math.random()*600
+      });
+    }
+  }
+
+  /* ---------------------------------------------------------------- input */
+  function pos(e){
+    const b = cv.getBoundingClientRect();
+    return [e.clientX - b.left, e.clientY - b.top];
+  }
+  const LIFT = function(){ return window.L.cell*1.35 + 16; };
+
+  function beginDrag(shapeId, from, extra){
+    G.drag = Object.assign({ shapeId:shapeId, from:from, px:0, py:0, left:0, top:0, snap:null }, extra||{});
+    G.hint = null;
+  }
+
+  function onDown(e){
+    if(G.solved) return;
+    const p = pos(e), px = p[0], py = p[1];
+    try{ cv.setPointerCapture(e.pointerId); }catch(err){}
+
+    if(py >= window.L.deckY){
+      const ti = window.R.deckTileAt(px, py);
+      if(ti >= 0 && G.deck[ti].left > 0){
+        if(window.L.maxScroll <= 0){
+          beginDrag(G.deck[ti].shapeId, 'deck', { deckIndex:ti });
+          moveDrag(px, py);
+        } else {
+          G.pending = { tile:ti, x0:px, y0:py, scroll0:G.deckScroll, mode:null };
+        }
+      } else {
+        G.pending = { tile:-1, x0:px, y0:py, scroll0:G.deckScroll, mode:'scroll' };
+      }
+      return;
+    }
+
+    const i = window.R.boardIndexAt(px, py);
+    if(i >= 0 && G.fill[i] >= 0){
+      const pid = G.fill[i];
+      const p2 = G.placements.get(pid);
+      if(p2.fixed) return;                 // khối đặt sẵn: bất động
+      const from = p2.idxs.slice();
+      doRemove(pid);
+      beginDrag(p2.shapeId, 'board', { originCells:from });
+      moveDrag(px, py);
+      sfx('lift');
+    }
+  }
+
+  function moveDrag(px, py){
+    const d = G.drag, L = window.L, sh = SHAPES[d.shapeId], cell = L.cell;
+    d.px = px; d.py = py;
+    d.left = px - sh.w*cell/2;
+    d.top  = py - LIFT() - sh.h*cell/2;
+
+    const fr = (d.top - L.by)/cell, fc = (d.left - L.bx)/cell;
+    const r0 = Math.round(fr), c0 = Math.round(fc);
+    let best = null, bestD = Infinity;
+    for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+      const r = r0+dr, c = c0+dc;
+      const dist = Math.sqrt((r-fr)*(r-fr) + (c-fc)*(c-fc));
+      if(dist >= bestD || dist > 0.85) continue;
+      const idxs = cellsFor(d.shapeId, r, c);
+      if(!idxs) continue;
+      bestD = dist; best = { r:r, c:c, idxs:idxs };
+    }
+    d.snap = best;
+  }
+
+  function onMove(e){
+    const p = pos(e), px = p[0], py = p[1];
+    if(G.pending){
+      const dx = px - G.pending.x0, dy = py - G.pending.y0;
+      if(G.pending.mode === null){
+        if(dy < -8)                                        G.pending.mode = 'lift';
+        else if(Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) G.pending.mode = 'scroll';
+        else if(Math.abs(dy) > 12)                          G.pending.mode = 'lift';
+        if(G.pending.mode === 'lift'){
+          const ti = G.pending.tile;
+          G.pending = null;
+          beginDrag(G.deck[ti].shapeId, 'deck', { deckIndex:ti });
+          moveDrag(px, py);
+          return;
+        }
+      }
+      if(G.pending && G.pending.mode === 'scroll'){
+        G.deckScroll = Math.max(0, Math.min(window.L.maxScroll, G.pending.scroll0 - dx));
+      }
+      return;
+    }
+    if(G.drag) moveDrag(px, py);
+  }
+
+  function onUp(e){
+    if(G.pending){ G.pending = null; return; }
+    const d = G.drag;
+    if(!d) return;
+    G.drag = null;
+
+    if(d.snap){
+      const pid = doPlace(d.shapeId, d.snap.idxs);
+      if(d.from === 'deck'){
+        deckOf(d.shapeId).left--;
+        G.history.push({ type:'place', shapeId:d.shapeId, to:d.snap.idxs.slice() });
+      } else {
+        G.history.push({ type:'move', shapeId:d.shapeId,
+                         from:d.originCells, to:d.snap.idxs.slice() });
+      }
+      sfx('place');
+      afterMove(true);
+    } else {
+      if(d.from === 'board'){
+        deckOf(d.shapeId).left++;
+        G.history.push({ type:'remove', shapeId:d.shapeId, from:d.originCells });
+        sfx('back');
+        afterMove(false);
+      } else {
+        sfx('back');
+      }
+    }
+  }
+
+  /* ------------------------------------------------------------------ HUD */
+  function syncHud(){
+    els.level.textContent = 'Màn ' + (G.index+1);
+    // Không tiết lộ tên tranh cho tới khi màn này đã hoàn thành ít nhất 1 lần.
+    els.pic.textContent   = G.done.has(G.index) ? G.level.picture.name : 'Tranh ẩn';
+    els.left.textContent  = (G.level.playable - G.filled) + ' ô';
+  }
+  function fmt(s){
+    s = Math.max(0, Math.floor(s));
+    return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+  }
+
+  let toastT = 0;
+  function toast(msg){
+    els.toast.textContent = msg;
+    els.toast.classList.add('on');
+    clearTimeout(toastT);
+    toastT = setTimeout(function(){ els.toast.classList.remove('on'); }, 2600);
+  }
+  function banner(on){ els.banner.classList.toggle('on', !!on); }
+
+  function hideOverlays(){
+    els.win.classList.remove('on');
+    els.levels.classList.remove('on');
+    banner(false);
+  }
+  function showWin(){
+    els.winPic.textContent  = G.level.picture.name + '!';
+    els.winTime.textContent = 'Thời gian ' + fmt(G.elapsed) + ' · ' + G.level.pieceCount + ' khối bạn đặt';
+    els.win.classList.add('on');
+  }
+  function showLevels(){
+    const n = Math.max(24, G.unlocked + 4);
+    let html = '';
+    for(let i=0;i<n;i++){
+      const lock = i > G.unlocked;
+      // tên tranh chỉ hiện ở màn đã hoàn thành — chưa chơi thì vẫn là ẩn số
+      const label = G.done.has(i) ? window.PICTURES[i % window.PICTURES.length].name : '???';
+      html += '<button class="lv'+(lock?' lock':'')+(i===G.index?' cur':'')+'" data-i="'+i+'"'
+            + (lock?' disabled':'') + '><b>'+(i+1)+'</b><span>'+label+'</span></button>';
+    }
+    els.lvGrid.innerHTML = html;
+    els.levels.classList.add('on');
+  }
+
+  /* ---------------------------------------------------------------- âm nhỏ */
+  let AC = null;
+  function sfx(kind){
+    try{
+      if(!AC) AC = new (window.AudioContext||window.webkitAudioContext)();
+      if(AC.state === 'suspended') AC.resume();
+      const seq = { place:[[520,0,.06]], lift:[[300,0,.05]], back:[[180,0,.09]],
+                    undo:[[240,0,.06]], win:[[523,0,.12],[659,.10,.12],[784,.20,.12],[1046,.30,.26]] }[kind];
+      if(!seq) return;
+      for(let k=0;k<seq.length;k++){
+        const f = seq[k][0], at = AC.currentTime + seq[k][1], dur = seq[k][2];
+        const o = AC.createOscillator(), g = AC.createGain();
+        o.type = 'triangle'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, at);
+        g.gain.exponentialRampToValueAtTime(0.14, at+0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, at+dur);
+        o.connect(g); g.connect(AC.destination); o.start(at); o.stop(at+dur+0.02);
+      }
+    }catch(e){}
+  }
+
+  /* ----------------------------------------------------------------- loop */
+  function frame(now){
+    if(G.solved && G.revealT < 1){
+      G.revealT = Math.min(1, (now - G.solvedAt)/900);
+    }
+    if(!G.solved) G.elapsed = (now - G.startedAt)/1000;
+    els.time.textContent = fmt(G.elapsed);
+    window.R.draw(now);
+    requestAnimationFrame(frame);
+  }
+
+  /* ----------------------------------------------------------------- boot */
+  function boot(){
+    cv = document.getElementById('cv');
+    window.R.bind(cv);
+    els = {
+      level:document.getElementById('hudLevel'), pic:document.getElementById('hudPic'),
+      left:document.getElementById('hudLeft'),   time:document.getElementById('hudTime'),
+      toast:document.getElementById('toast'),    banner:document.getElementById('banner'),
+      win:document.getElementById('win'),        winPic:document.getElementById('winPic'),
+      winTime:document.getElementById('winTime'),levels:document.getElementById('levels'),
+      lvGrid:document.getElementById('lvGrid')
+    };
+
+    const last = load();
+    loadLevel(last);
+
+    cv.addEventListener('pointerdown', onDown);
+    cv.addEventListener('pointermove', onMove);
+    cv.addEventListener('pointerup', onUp);
+    cv.addEventListener('pointercancel', onUp);
+    cv.addEventListener('wheel', function(e){
+      if(window.L.maxScroll <= 0) return;
+      G.deckScroll = Math.max(0, Math.min(window.L.maxScroll, G.deckScroll + e.deltaY + e.deltaX));
+    }, { passive:true });
+
+    document.getElementById('btnUndo').onclick    = undo;
+    document.getElementById('btnRestart').onclick = function(){ restart(); };
+    document.getElementById('btnHint').onclick    = hint;
+    document.getElementById('btnLevels').onclick  = showLevels;
+    document.getElementById('btnNext').onclick    = function(){ loadLevel(G.index+1); };
+    document.getElementById('btnAgain').onclick   = function(){ restart(); };
+    document.getElementById('bannerUndo').onclick = undo;
+    document.getElementById('lvClose').onclick    = function(){ els.levels.classList.remove('on'); };
+    els.lvGrid.addEventListener('click', function(e){
+      const b = e.target.closest('button.lv');
+      if(!b || b.disabled) return;
+      loadLevel(+b.dataset.i);
+    });
+    window.addEventListener('keydown', function(e){
+      if(e.key === 'z' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); undo(); }
+      if(e.key === 'r') restart();
+      if(e.key === 'h') hint();
+    });
+    window.addEventListener('resize', function(){ window.R.layout(); });
+
+    requestAnimationFrame(frame);
+  }
+
+  window.Game = { boot:boot, loadLevel:loadLevel, undo:undo, restart:restart, hint:hint };
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+# cấu hình cục bộ của công cụ, không thuộc dự án
+.claude/
+
+# rác hệ điều hành
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# thư mục tạm khi dựng
+node_modules/

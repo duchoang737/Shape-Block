@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cozy Mosaic — 4 hướng UI</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#1B1916;color:#E9E1D4;
+     font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:34px 30px 8px;max-width:1500px;margin:0 auto}
+h1{margin:0 0 6px;font:600 27px/1.2 "Segoe UI",system-ui,sans-serif;letter-spacing:-.01em}
+header p{margin:0;color:#9E9384;max-width:78ch}
+header p b{color:#D6C9B3;font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));
+      gap:20px;padding:24px 30px 46px;max-width:1500px;margin:0 auto}
+.card{display:flex;flex-direction:column;background:#242019;border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;overflow:hidden;text-decoration:none;color:inherit;
+      transition:transform .16s,border-color .16s,box-shadow .16s}
+.card:hover{transform:translateY(-4px);border-color:rgba(216,168,91,.5);
+            box-shadow:0 16px 34px rgba(0,0,0,.45)}
+.card img{width:100%;aspect-ratio:9/16;object-fit:cover;object-position:top;display:block;
+          background:#15130F}
+.cbody{padding:15px 17px 18px;display:flex;flex-direction:column;gap:7px}
+.cbody b{font:600 18px/1.2 "Segoe UI",system-ui,sans-serif;display:flex;align-items:center;gap:9px}
+.cbody b span{width:24px;height:24px;border-radius:7px;background:#3A342A;color:#E8C795;
+              display:grid;place-items:center;font:700 12px system-ui}
+.cbody em{color:#8E8474;font-style:normal;font-size:12px;letter-spacing:.05em;text-transform:uppercase}
+.cbody p{margin:4px 0 0;color:#BFB4A1;font-size:13.5px}
+.cbody ul{margin:2px 0 0;padding-left:17px;color:#9E9384;font-size:12.5px}
+.cbody li{margin:3px 0}
+.cbody .logo{width:100%;height:96px;object-fit:cover;object-position:center;border-radius:10px;
+             margin-top:8px;background:#15130F}
+.open{margin-top:8px;color:#E8C795;font:600 13px system-ui}
+footer{padding:0 30px 44px;max-width:1500px;margin:0 auto;color:#7E7566;font-size:12.5px}
+footer code{background:#242019;padding:2px 6px;border-radius:5px;color:#BFB4A1}
+</style>
+</head>
+<body>
+<header>
+  <h1>Cozy Mosaic — 4 hướng UI để chọn</h1>
+  <p>Ảnh lớn là <b>art direction do codeb sinh</b>; bấm vào thẻ để mở <b>demo chạy được</b> dựng
+     bằng HTML/CSS thật, có đủ 4 màn hình (trang chủ · chơi · phòng tranh · cài đặt) và cả
+     <b>cú kết màn</b>. Board trong demo dùng đúng dữ liệu tranh của game. Chốt một hướng rồi
+     mình áp thẳng vào <code>index.html</code>.</p>
+</header>
+<div class="grid">
+    <a class="card" href="demo-1-gom-vai.html">
+      <img src="assets/dir-A-ceramic.png" alt="Gốm & Vải thô">
+      <div class="cbody">
+        <b><span>A</span> Gốm & Vải thô</b>
+        <em>Ceramic & Linen</em>
+        <p>Đúng tinh thần bản hiện tại nhưng chỉnh cho ra dáng game: nền vải lanh thật, ô gốm men mờ, nút kem viền nâu có gờ dày.</p>
+        <ul><li>Giữ nguyên bảng màu game đang dùng — đổi UI mà không phải vẽ lại tranh</li><li>Nút có gờ nổi 3px nên bấm ra tiếng, khác hẳn nút phẳng hiện tại</li><li>Không huy hiệu, không sao, không thanh máu — hợp luật "không điểm số"</li></ul>
+        <img class="logo" src="assets/logo-A.png" alt="logo Gốm & Vải thô" loading="lazy">
+        <span class="open">Mở demo chạy được ›</span>
+      </div>
+    </a>
+    <a class="card" href="demo-2-go-ngoc.html">
+      <img src="assets/dir-B-wood.png" alt="Gỗ & Ngọc bích">
+      <div class="cbody">
+        <b><span>B</span> Gỗ & Ngọc bích</b>
+        <em>Carved Wood & Jade</em>
+        <p>Ngôn ngữ chuẩn của dòng block puzzle đang ăn khách: khung gỗ chạm, viền đồng, chữ vàng. Người chơi nhìn ảnh store là biết ngay thể loại.</p>
+        <ul><li>Quen mắt nhất với người chơi block puzzle — dễ đọc ở icon store</li><li>Nền tối làm màu tranh bật lên mạnh nhất trong bốn hướng</li><li>Đổi cả tông game: từ "sổ tay ban ngày" sang "bàn gỗ buổi tối"</li></ul>
+        <img class="logo" src="assets/logo-B.png" alt="logo Gỗ & Ngọc bích" loading="lazy">
+        <span class="open">Mở demo chạy được ›</span>
+      </div>
+    </a>
+    <a class="card" href="demo-3-giay-thu-cong.html">
+      <img src="assets/dir-C-paper.png" alt="Giấy thủ công">
+      <div class="cbody">
+        <b><span>C</span> Giấy thủ công</b>
+        <em>Papercraft Scrapbook</em>
+        <p>Giấy cắt dán nhiều lớp, mép rách, nút dán sticker. Ô gạch nghiêng lệch vài độ lúc chơi rồi tự nắn thẳng khi khép mạch — cú kết màn nằm ngay trong chất liệu.</p>
+        <ul><li>Khác biệt nhất trên store — không đụng hàng block puzzle nào</li><li>Ô nghiêng → thẳng lúc thắng: một hiệu ứng không hướng nào khác làm được</li><li>Nút sticker ba màu giúp phân biệt công cụ nhanh hơn ba nút cùng màu</li></ul>
+        <img class="logo" src="assets/logo-C.png" alt="logo Giấy thủ công" loading="lazy">
+        <span class="open">Mở demo chạy được ›</span>
+      </div>
+    </a>
+    <a class="card" href="demo-4-keo-mem.html">
+      <img src="assets/dir-D-softpop.png" alt="Kẹo mềm hiện đại">
+      <div class="cbody">
+        <b><span>D</span> Kẹo mềm hiện đại</b>
+        <em>Modern Soft-Pop</em>
+        <p>Bộ mặt casual đang phổ biến nhất 2025: nút bo tròn dày có gờ dưới, chữ đậm bo tròn, nền gradient pastel. Bấm nút nào cũng nảy.</p>
+        <ul><li>Dễ bán nhất cho người chơi casual mới — mọi thứ tự nói "bấm vào tôi"</li><li>Chỗ nhấn to rõ nhất: nút chính 3D, badge số lượt gợi ý</li><li>Rủi ro: pastel dễ nuốt mất màu tranh, phải giữ card trắng làm nền</li></ul>
+        <img class="logo" src="assets/logo-D.png" alt="logo Kẹo mềm hiện đại" loading="lazy">
+        <span class="open">Mở demo chạy được ›</span>
+      </div>
+    </a></div>
+<footer>
+  Sinh lại: <code>node "Block Wow 5/ui-demos/build-demos.mjs"</code> ·
+  Ảnh: <code>codeb image</code> (Nano Banana Pro cho mockup + logo, Flash cho texture).
+</footer>
+</body>
+</html>

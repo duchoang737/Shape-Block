@@ -1,0 +1,826 @@
+<title>Đáp Xuống Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap">
+
+<style>
+:root{
+  --bg:#E7DFD3; --card:#FFFDF8; --ink:#332B22; --muted:#7A6D5C;
+  --rule:#D6CABA; --accent:#2F6F5E; --accent-ink:#FFFDF8;
+  --chip:#DFD4C3; --frame:#D2C5B2; --lock:#9C5A2E;
+  --shadow:0 1px 0 rgba(51,43,34,.05), 0 10px 26px -14px rgba(51,43,34,.42);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#201E1B; --card:#2B2825; --ink:#EFE7DA; --muted:#A6998A;
+    --rule:#3A3632; --accent:#79BCA5; --accent-ink:#1B2521;
+    --chip:#38342F; --frame:#453F38; --lock:#D9985F;
+    --shadow:0 1px 0 rgba(0,0,0,.3), 0 12px 30px -16px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#201E1B; --card:#2B2825; --ink:#EFE7DA; --muted:#A6998A;
+  --rule:#3A3632; --accent:#79BCA5; --accent-ink:#1B2521;
+  --chip:#38342F; --frame:#453F38; --lock:#D9985F;
+  --shadow:0 1px 0 rgba(0,0,0,.3), 0 12px 30px -16px rgba(0,0,0,.8);
+}
+
+*{ box-sizing:border-box; }
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Be Vietnam Pro", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased;
+}
+.wrap{ max-width:1080px; margin:0 auto; padding:40px 22px 72px; }
+
+header{ display:flex; flex-direction:column; gap:14px; padding-bottom:26px;
+  border-bottom:1px solid var(--rule); margin-bottom:26px; }
+.kicker{ font-size:11.5px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--muted); font-weight:600; }
+h1{ font-family:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  font-weight:800; font-size:clamp(30px,5.4vw,46px); line-height:1.04;
+  margin:0; letter-spacing:-.022em; text-wrap:balance; }
+.lede{ margin:0; max-width:64ch; color:var(--muted); font-size:16px; }
+.lede b{ color:var(--ink); font-weight:600; }
+
+/* chốt đã quyết — không phải thẻ trang trí, nó ghi một quyết định */
+.locked{ display:flex; gap:12px; align-items:flex-start; margin:0 0 26px;
+  padding:13px 16px; border:1px solid var(--rule); border-left:3px solid var(--lock);
+  border-radius:0 12px 12px 0; background:var(--card); box-shadow:var(--shadow); }
+.locked .tag{ font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--lock); white-space:nowrap; padding-top:2px; }
+.locked p{ margin:0; font-size:13.5px; color:var(--muted); }
+.locked b{ color:var(--ink); font-weight:600; }
+
+.bar{ display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center;
+  margin:0 0 26px; padding:12px 16px; background:var(--card);
+  border:1px solid var(--rule); border-radius:12px; box-shadow:var(--shadow); }
+.bar p{ margin:0; font-size:13.5px; color:var(--muted); flex:1 1 200px; }
+.bar b{ color:var(--ink); font-weight:600; }
+.seg{ display:flex; border:1px solid var(--rule); border-radius:999px; overflow:hidden; }
+.seg button{ font:inherit; font-size:13px; font-weight:500; cursor:pointer;
+  padding:7px 13px; border:0; background:transparent; color:var(--ink);
+  font-variant-numeric:tabular-nums; transition:background .15s; }
+.seg button + button{ border-left:1px solid var(--rule); }
+.seg button:hover{ background:var(--chip); }
+.seg button[aria-pressed="true"]{ background:var(--accent); color:var(--accent-ink); }
+button.tog{ font:inherit; font-size:13px; font-weight:500; cursor:pointer;
+  padding:7px 14px; border-radius:999px; border:1px solid var(--rule);
+  background:transparent; color:var(--ink); transition:background .15s, border-color .15s; }
+button.tog:hover{ background:var(--chip); }
+button.tog[aria-pressed="true"]{ background:var(--accent); border-color:var(--accent);
+  color:var(--accent-ink); }
+button:focus-visible{ outline:2px solid var(--accent); outline-offset:3px; }
+
+.grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:22px; }
+@media (max-width:760px){ .grid{ grid-template-columns:1fr; } }
+
+.card{ background:var(--card); border:1px solid var(--rule); border-radius:14px;
+  box-shadow:var(--shadow); padding:16px 16px 18px; display:flex;
+  flex-direction:column; gap:12px; }
+.card h2{ font-family:"Bricolage Grotesque", ui-sans-serif, sans-serif;
+  font-weight:700; font-size:19px; margin:0; letter-spacing:-.01em;
+  display:flex; align-items:baseline; gap:9px; }
+.num{ font-size:12px; font-weight:600; color:var(--accent);
+  font-variant-numeric:tabular-nums; letter-spacing:.06em; }
+.stage{ position:relative; width:100%; height:238px; border-radius:10px;
+  overflow:hidden; border:1px solid var(--frame); }
+.stage canvas{ display:block; width:100%; height:100%; }
+.note{ margin:0; font-size:13.5px; color:var(--muted); }
+.note b{ color:var(--ink); font-weight:600; }
+.when{ margin:0; font-size:13px; color:var(--muted);
+  padding-left:11px; border-left:2px solid var(--rule); }
+.when em{ color:var(--ink); font-style:normal; font-weight:600; }
+.acts{ display:flex; gap:8px; align-items:center; }
+.acts .ms{ margin-left:auto; font-size:12px; color:var(--muted);
+  font-variant-numeric:tabular-nums; }
+button.run{ font:inherit; font-size:13px; font-weight:500; cursor:pointer;
+  padding:6px 15px; border-radius:8px; border:1px solid var(--rule);
+  background:transparent; color:var(--ink); transition:background .15s; }
+button.run:hover{ background:var(--chip); }
+
+h3{ font-family:"Bricolage Grotesque", ui-sans-serif, sans-serif; font-weight:700;
+  font-size:22px; margin:44px 0 14px; letter-spacing:-.012em; }
+.scroll{ overflow-x:auto; border:1px solid var(--rule); border-radius:12px;
+  background:var(--card); box-shadow:var(--shadow); }
+table{ border-collapse:collapse; width:100%; min-width:640px; font-size:13.5px; }
+th, td{ text-align:left; padding:10px 14px; border-bottom:1px solid var(--rule);
+  vertical-align:top; }
+th{ font-weight:600; font-size:11.5px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--muted); }
+tbody tr:last-child td{ border-bottom:0; }
+td.n{ font-variant-numeric:tabular-nums; white-space:nowrap; }
+td b{ font-weight:600; }
+.tail{ margin:18px 0 0; max-width:66ch; color:var(--muted); font-size:14.5px; }
+.tail b{ color:var(--ink); font-weight:600; }
+code{ font-family:ui-monospace, "Cascadia Code", Consolas, monospace; font-size:12.5px;
+  background:var(--chip); padding:1px 5px; border-radius:4px; }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="kicker">Cozy Mosaic · Block Wow 5 · demo chọn kiểu · vòng 2</div>
+  <h1>Khối đáp xuống board</h1>
+  <p class="lede">Bốn kiểu này diễn <b>ngay tại ô vừa thả</b>, không dời chỗ — nên chạy được cho
+  cả hai đường đặt khối của game: <b>kéo thả</b> (khối đã nằm dưới ngón tay rồi) lẫn
+  <b>chạm chip rồi chạm board</b>. Vẫn đúng bộ vẽ gốm của <b>render.js</b>: mạch vữa 2,2%,
+  bo góc 9%, vệt vát và viền sáng chạy theo đường bao.</p>
+</header>
+
+<div class="locked">
+  <span class="tag">Đã chốt</span>
+  <p><b>Hủy = kiểu 4 "Về khay"</b> — khối bay ngược về ô khay theo vòng cung, khay nháy một
+  vòng sáng. Cả bốn thẻ dưới đây đều dùng chung cú hủy đó, nên cái bạn đang so <b>chỉ là
+  nửa đầu</b>: khối đáp xuống thế nào.</p>
+</div>
+
+<div class="bar">
+  <p><b>Chạy cả bốn</b> để so cùng lúc. Tắt <b>Kèm hủy</b> nếu chỉ muốn xem lúc đặt.</p>
+  <div class="seg" role="group" aria-label="Tốc độ phát">
+    <button type="button" data-sp="1" aria-pressed="true">1×</button>
+    <button type="button" data-sp="0.4" aria-pressed="false">0,4×</button>
+    <button type="button" data-sp="0.15" aria-pressed="false">0,15×</button>
+  </div>
+  <button type="button" class="tog" id="btnAll">Chạy cả bốn</button>
+  <button type="button" class="tog" id="btnCancel" aria-pressed="true">Kèm hủy</button>
+  <button type="button" class="tog" id="btnLoop" aria-pressed="true">Tự lặp</button>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<h3>Đo lại thành bảng</h3>
+<div class="scroll">
+<table>
+  <thead><tr>
+    <th>Kiểu</th><th class="n">Đặt</th><th>Cái làm nên chuyện</th><th>Mất</th>
+  </tr></thead>
+  <tbody>
+    <tr><td><b>A · Dập khuôn</b></td><td class="n">230 ms</td>
+      <td>Nện xuống từ 1,16 rồi <b>một vòng sóng chạy ra khỏi mép khối</b>, cộng một ánh chớp trên mặt gốm.</td>
+      <td>Vòng sóng là thứ board chưa từng có — nhiều khối liền nhau thì thành nhiều vòng chồng nhau.</td></tr>
+    <tr><td><b>B · Board rung theo</b></td><td class="n">380 ms</td>
+      <td>Khối đáp trong 110 ms, rồi <b>cả những khối xung quanh lún theo</b>, khối càng xa vào càng chậm.</td>
+      <td>Dài nhất; board càng đầy thì càng nhiều thứ nhúc nhích cùng lúc.</td></tr>
+    <tr><td><b>C · Rơi &amp; nảy</b></td><td class="n">300 ms</td>
+      <td>Rơi từ gần một ô phía trên, bóng to nhoè thu về sắc gọn, chạm thì <b>nén rồi bật</b>, bụi vữa bắn ra.</td>
+      <td>Có trọng lượng nhưng cũng có quán tính — 300 ms trước khi khối đứng yên hẳn.</td></tr>
+    <tr><td><b>D · Nở từ viên chạm</b></td><td class="n">260 ms</td>
+      <td>Các viên bung ra từ <b>viên ngón tay đang giữ</b>, quá đà 7% rồi về, kèm quầng sáng đất nung men theo đường bao.</td>
+      <td>Thời lượng đi theo số ô: khối 8 ô thành 350 ms.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Chọn xong thì gắn vào đâu</h3>
+<p class="tail">Không cần vòng lặp mới — <code>frame()</code> trong <code>game.js</code> đã chạy
+<code>requestAnimationFrame</code> mỗi khung hình. Ba chỗ phải động vào: <code>doPlace()</code> ghi
+mốc thời gian vào khối vừa đặt; <code>drawBlocks()</code> đọc mốc đó ra hệ số co giãn và vẽ thêm
+lớp hiệu ứng; và khối đang <b>hủy</b> phải được giữ lại vẽ nốt sau khi <code>G.placements</code>
+đã xoá nó — chỗ duy nhất đụng tới cấu trúc dữ liệu.</p>
+<p class="tail">Riêng kiểu <b>B</b> cần thêm một thứ: khoảng cách từ mỗi khối tới khối vừa đặt,
+tính một lần lúc đặt rồi giữ trong <code>G</code> — không tính lại mỗi khung hình.
+Riêng <b>hủy kiểu 4</b> cần toạ độ ô khay, lấy từ <code>syncDeck()</code>.</p>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ==========================================================================
+ * 1. Bộ vẽ gốm — chép từ src/render.js để demo và game không lệch nhau
+ * ========================================================================*/
+var T = { linen:'#EFE3D0', paper:'#FFFDF8', slot:'#F0E6D6',
+          block:'#D8C2A4', accent:'#C4794A', ink:'#5B4B34' };
+var GROUT = 0.022, RAD = 0.09;
+
+function hexRGB(h){
+  h = h.replace('#','');
+  if(h.length===3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+}
+function toHex(r,g,b){
+  function c(n){ return Math.max(0,Math.min(255,Math.round(n))).toString(16).padStart(2,'0'); }
+  return '#'+c(r)+c(g)+c(b);
+}
+function mix(a,b,t){ var A=hexRGB(a), B=hexRGB(b);
+  return toHex(A[0]+(B[0]-A[0])*t, A[1]+(B[1]-A[1])*t, A[2]+(B[2]-A[2])*t); }
+function shade(hex,amt){ var c=hexRGB(hex); return toHex(c[0]+255*amt, c[1]+255*amt, c[2]+255*amt); }
+function rgba(hex,a){ var c=hexRGB(hex); return 'rgba('+c[0]+','+c[1]+','+c[2]+','+a+')'; }
+
+function jitter(i){
+  var h = Math.imul(i ^ 0x9e3779b9, 2654435761) >>> 0;
+  return ((h % 1000)/1000 - 0.5) * 0.055;
+}
+function rr(c,x,y,w,h,r){
+  r = Math.min(r, w/2, h/2);
+  c.beginPath(); c.moveTo(x+r,y);
+  c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
+  c.arcTo(x,y+h,x,y,r);     c.arcTo(x,y,x+w,y,r);
+  c.closePath();
+}
+function tile(c,x,y,s,color,gapK,sunken){
+  var g = s*(gapK==null ? GROUT : gapK), S = s-2*g, r = s*RAD;
+  if(S<=0.5) return;
+  var X=x+g, Y=y+g;
+  rr(c,X,Y,S,S,r); c.fillStyle=color; c.fill();
+  c.save(); c.clip();
+  var gr = c.createLinearGradient(X,Y,X,Y+S);
+  if(sunken){
+    gr.addColorStop(0,'rgba(0,0,0,.20)'); gr.addColorStop(.35,'rgba(0,0,0,.02)');
+    gr.addColorStop(1,'rgba(255,255,255,.10)');
+  } else {
+    gr.addColorStop(0,'rgba(255,255,255,.20)'); gr.addColorStop(.5,'rgba(255,255,255,0)');
+    gr.addColorStop(1,'rgba(0,0,0,.10)');
+  }
+  c.fillStyle=gr; c.fillRect(X,Y,S,S);
+  c.restore();
+}
+
+/* Đường bao đi vòng quanh mép. `inset` ÂM thì bao PHÌNH RA — kiểu A và D dùng
+ * chính chỗ đó để có vòng sóng và quầng sáng ôm đúng hình khối. */
+function outline(idxs, cols, rows, cell, bx, by, inset){
+  var set = {}, q;
+  for(q=0;q<idxs.length;q++) set[idxs[q]] = 1;
+  function has(r,c){ return r>=0 && r<rows && c>=0 && c<cols && set[r*cols+c]===1; }
+  var from = {};
+  function push(x1,y1,x2,y2){
+    var k = x1+','+y1;
+    if(!from[k]) from[k] = [];
+    from[k].push([x2,y2]);
+  }
+  for(q=0;q<idxs.length;q++){
+    var i=idxs[q], r=(i/cols)|0, c=i%cols;
+    if(!has(r-1,c)) push(c,   r,   c+1, r  );
+    if(!has(r,c+1)) push(c+1, r,   c+1, r+1);
+    if(!has(r+1,c)) push(c+1, r+1, c,   r+1);
+    if(!has(r,c-1)) push(c,   r+1, c,   r  );
+  }
+  var keys = Object.keys(from);
+  if(!keys.length) return null;
+  var cur = keys[0].split(',').map(Number), pts = [], guard = idxs.length*4 + 8;
+  while(guard-- > 0){
+    var list = from[cur[0]+','+cur[1]];
+    if(!list || !list.length) break;
+    pts.push(cur);
+    cur = list.shift();
+    if(cur[0]===pts[0][0] && cur[1]===pts[0][1]) break;
+  }
+  if(pts.length < 4) return null;
+  var left = 0;
+  for(q=0;q<keys.length;q++) left += from[keys[q]].length;
+  if(left) return null;
+
+  var keep = [], t;
+  for(t=0;t<pts.length;t++){
+    var a=pts[(t-1+pts.length)%pts.length], b=pts[t], d=pts[(t+1)%pts.length];
+    if((a[0]===b[0] && b[0]===d[0]) || (a[1]===b[1] && b[1]===d[1])) continue;
+    keep.push(b);
+  }
+  if(keep.length < 4) return null;
+
+  var out = [];
+  for(t=0;t<keep.length;t++){
+    var p0=keep[(t-1+keep.length)%keep.length], p1=keep[t], p2=keep[(t+1)%keep.length];
+    var d1x=Math.sign(p1[0]-p0[0]), d1y=Math.sign(p1[1]-p0[1]);
+    var d2x=Math.sign(p2[0]-p1[0]), d2y=Math.sign(p2[1]-p1[1]);
+    var nx = -d1y + -d2y, ny = d1x + d2x;
+    out.push([ bx + p1[0]*cell + nx*inset, by + p1[1]*cell + ny*inset ]);
+  }
+  return out;
+}
+function tracePath(c, pts, rad){
+  var n = pts.length;
+  function mid(a,b){ return [(a[0]+b[0])/2, (a[1]+b[1])/2]; }
+  var m0 = mid(pts[n-1], pts[0]);
+  c.moveTo(m0[0], m0[1]);
+  for(var t=0;t<n;t++){
+    var prev=pts[(t-1+n)%n], cur=pts[t], nxt=pts[(t+1)%n];
+    var m = mid(cur,nxt);
+    var lenA = Math.hypot(cur[0]-prev[0], cur[1]-prev[1]);
+    var lenB = Math.hypot(nxt[0]-cur[0], nxt[1]-cur[1]);
+    var r = Math.max(0, Math.min(rad, lenA/2, lenB/2));
+    c.arcTo(cur[0], cur[1], m[0], m[1], r);
+    c.lineTo(m[0], m[1]);
+  }
+  c.closePath();
+}
+
+/* ==========================================================================
+ * 2. Cảnh — màn 1 "Bánh kem", art + palette lấy từ src/pictures.js
+ * ========================================================================*/
+/* Bánh kem nới rộng ra 8×5. Cảnh 6×4 của vòng 1 không dùng lại được cho kiểu
+ * B: ở đó MỌI khối đều cách khối vừa đặt đúng 1 ô, nên sóng sụp thành "cả
+ * board nhấp nháy cùng lúc". Rộng ra thì khoảng cách trải 1→4 và sóng đọc ra
+ * được. Hai ô góc phải dưới để trống — board giữa màn thì phải còn chỗ trống. */
+var ART = ["...cc...","ffffffff","pppppppp","pppppppp","bbbbbbbb"];
+var PAL = { c:'#FFC93C', f:'#FF8FB1', p:'#F7B733', b:'#8A4B2A' };
+var COLS = 8, ROWS = 5;
+
+var inPic = [], colorAt = [];
+for(var r=0;r<ROWS;r++) for(var c2=0;c2<COLS;c2++){
+  var ch = ART[r][c2], i = r*COLS + c2;
+  inPic[i] = ch !== '.';
+  colorAt[i] = PAL[ch] || T.slot;
+}
+var STATIC = [ {id:1, idxs:[3,4]},                {id:2, idxs:[8,9,16,17]},
+               {id:3, idxs:[10,18]},              {id:4, idxs:[14,15,22,23]},
+               {id:5, idxs:[24,25,26,32,33,34]},  {id:6, idxs:[27,28,35,36]},
+               {id:7, idxs:[29,30,37,38]} ];
+var HERO = [11,12,13,19,20,21], HERO_ID = 9, ANCHOR = 11;
+
+function rcOf(i){ return [(i/COLS)|0, i%COLS]; }
+function manh(a,b){ var A=rcOf(a), B=rcOf(b); return Math.abs(A[0]-B[0]) + Math.abs(A[1]-B[1]); }
+
+/* Bậc sóng của kiểu D: khoảng cách từ viên đã chạm. */
+var WAVE = HERO.map(function(i){ return manh(ANCHOR, i); });
+var WAVE_MAX = Math.max.apply(null, WAVE);
+
+/* Khoảng cách TỚI KHỐI VỪA ĐẶT — kiểu B dùng để rung board. Trong game thì
+ * tính một lần lúc đặt rồi giữ lại, không tính lại mỗi khung hình.
+ *
+ * Đo từ TÂM tới TÂM, không phải từ mép tới mép. Cả khối lún xuống như MỘT đơn
+ * vị nên thứ quyết định lúc nó lún là tâm nó ở đâu; đo từ mép thì gần hết mọi
+ * khối đều "cách 1 ô" và sóng sụp thành một nhịp duy nhất. */
+function centerOf(idxs){
+  var sr=0, sc=0;
+  idxs.forEach(function(i){ var rc=rcOf(i); sr+=rc[0]; sc+=rc[1]; });
+  return [sr/idxs.length, sc/idxs.length];
+}
+var HERO_C = centerOf(HERO);
+function distToHero(idxs){
+  var k = centerOf(idxs);
+  return Math.hypot(k[0]-HERO_C[0], k[1]-HERO_C[1]);
+}
+var DIST_BLOCK = {}, DIST_MIN = 99, DIST_TILE = [];
+STATIC.forEach(function(b){
+  DIST_BLOCK[b.id] = distToHero(b.idxs);
+  DIST_MIN = Math.min(DIST_MIN, DIST_BLOCK[b.id]);
+});
+var IS_HERO = {};
+HERO.forEach(function(i){ IS_HERO[i] = 1; });
+for(var q=0;q<COLS*ROWS;q++){
+  /* Ô của chính khối vừa đặt KHÔNG rung theo và không được tính vào mốc gần
+   * nhất — nếu tính thì mốc rơi về ~0,3 và cả sóng bị đẩy trễ một nhịp. */
+  DIST_TILE[q] = (inPic[q] && !IS_HERO[q]) ? distToHero([q]) : 999;
+  if(DIST_TILE[q] < 999) DIST_MIN = Math.min(DIST_MIN, DIST_TILE[q]);
+}
+
+var HERO_AVG = (function(){
+  var s=[0,0,0];
+  HERO.forEach(function(i){ var c=hexRGB(colorAt[i]); s[0]+=c[0]; s[1]+=c[1]; s[2]+=c[2]; });
+  return toHex(s[0]/HERO.length, s[1]/HERO.length, s[2]/HERO.length);
+})();
+
+function faceOf(i, pid){ return shade(colorAt[i], jitter(pid*1013)); }
+function slotOf(i){ return mix(T.slot, colorAt[i], 0.12); }
+
+/* ==========================================================================
+ * 3. Vẽ khối — một đường bao, một lần cắt, một vệt vát (giống drawBlocks)
+ * ========================================================================*/
+function bbox(V, idxs){
+  var x0=1e9, y0=1e9, x1=-1e9, y1=-1e9;
+  idxs.forEach(function(i){
+    var rc=rcOf(i);
+    x0=Math.min(x0, V.bx+rc[1]*V.cell);     x1=Math.max(x1, V.bx+(rc[1]+1)*V.cell);
+    y0=Math.min(y0, V.by+rc[0]*V.cell);     y1=Math.max(y1, V.by+(rc[0]+1)*V.cell);
+  });
+  return [x0,y0,x1,y1];
+}
+function rectsOf(c, V, idxs){
+  idxs.forEach(function(i){
+    var rc=rcOf(i);
+    c.rect(V.bx+rc[1]*V.cell, V.by+rc[0]*V.cell, V.cell, V.cell);
+  });
+}
+function paintCells(c, V, idxs, pid, darken){
+  var groups = {};
+  idxs.forEach(function(i){
+    var col = faceOf(i,pid);
+    if(!groups[col]) groups[col] = [];
+    groups[col].push(i);
+  });
+  Object.keys(groups).forEach(function(col){
+    c.beginPath();
+    groups[col].forEach(function(i){
+      var rc=rcOf(i);
+      c.rect(V.bx+rc[1]*V.cell-0.5, V.by+rc[0]*V.cell-0.5, V.cell+1, V.cell+1);
+    });
+    c.fillStyle = darken ? shade(col, darken) : col;
+    c.fill();
+  });
+}
+function drawBlock(c, V, idxs, pid, alpha){
+  if(!idxs.length) return;
+  var cell=V.cell, g=cell*GROUT, rad=cell*RAD;
+  var pts  = outline(idxs, COLS, ROWS, cell, V.bx, V.by, g);
+  var mort = outline(idxs, COLS, ROWS, cell, V.bx, V.by, 0);
+  var bb = bbox(V, idxs);
+
+  c.save();
+  c.globalAlpha = alpha;
+
+  c.save(); c.beginPath();
+  if(mort) tracePath(c, mort, cell*0.05); else rectsOf(c, V, idxs);
+  c.clip(); paintCells(c, V, idxs, pid, -0.085); c.restore();
+
+  c.save(); c.beginPath();
+  if(pts) tracePath(c, pts, rad); else rectsOf(c, V, idxs);
+  c.clip();
+  paintCells(c, V, idxs, pid, 0);
+  var gr = c.createLinearGradient(0, bb[1], 0, bb[3]);
+  gr.addColorStop(0,   'rgba(255,255,255,.20)');
+  gr.addColorStop(0.5, 'rgba(255,255,255,0)');
+  gr.addColorStop(1,   'rgba(0,0,0,.10)');
+  c.fillStyle = gr; c.fillRect(bb[0], bb[1], bb[2]-bb[0], bb[3]-bb[1]);
+  c.restore();
+
+  if(pts){
+    var w = Math.max(1, cell*0.032);
+    var inner = outline(idxs, COLS, ROWS, cell, V.bx, V.by, g+w);
+    if(inner){
+      c.beginPath(); tracePath(c, pts, rad); tracePath(c, inner, Math.max(0, rad-w));
+      var gr2 = c.createLinearGradient(0, bb[1], 0, bb[3]);
+      gr2.addColorStop(0,    'rgba(255,255,255,.17)');
+      gr2.addColorStop(0.55, 'rgba(255,255,255,0)');
+      gr2.addColorStop(1,    'rgba(74,58,40,.11)');
+      c.fillStyle = gr2; c.fill('evenodd');
+    }
+  }
+  if(mort && pts){
+    c.globalAlpha = alpha*0.11;
+    c.beginPath(); tracePath(c, mort, cell*0.05); tracePath(c, pts, rad);
+    c.fillStyle = '#4A3A28'; c.fill('evenodd');
+  }
+  c.restore();
+}
+function drawLoose(c, V, i, pid, alpha, s){
+  var cell=V.cell, rc=rcOf(i);
+  var x=V.bx+rc[1]*cell, y=V.by+rc[0]*cell;
+  c.save(); c.globalAlpha = alpha;
+  c.translate(x+cell/2, y+cell/2); c.scale(s,s); c.translate(-x-cell/2, -y-cell/2);
+  tile(c, x, y, cell, faceOf(i,pid), GROUT, false);
+  c.restore();
+}
+/* `pa` PHẢI bằng độ mờ mặt khối, nếu không lớp lót đục sẽ chặn cú tan biến. */
+function blockShadow(c, V, idxs, blur, dy, sa, pa){
+  if(sa <= 0.003 || pa <= 0.003) return;
+  var pts = outline(idxs, COLS, ROWS, V.cell, V.bx, V.by, V.cell*GROUT);
+  if(!pts) return;
+  c.save();
+  c.globalAlpha = pa;
+  c.shadowColor = 'rgba(74,58,40,'+sa.toFixed(3)+')';
+  c.shadowBlur = blur; c.shadowOffsetY = dy;
+  c.beginPath(); tracePath(c, pts, V.cell*RAD);
+  c.fillStyle = HERO_AVG; c.fill();
+  c.restore();
+}
+function xform(c, V, idxs, sx, sy, ox, oy, fn){
+  var bb = bbox(V, idxs), cx=(bb[0]+bb[2])/2, cy=(bb[1]+bb[3])/2;
+  c.save();
+  c.translate(cx+ox, cy+oy); c.scale(sx,sy); c.translate(-cx,-cy);
+  fn();
+  c.restore();
+}
+/* Ánh chớp trên mặt gốm — cắt đúng đường bao nên không tràn ra mạch vữa. */
+function flash(c, V, idxs, alpha, color){
+  if(alpha <= 0.004) return;
+  var pts = outline(idxs, COLS, ROWS, V.cell, V.bx, V.by, V.cell*GROUT);
+  c.save();
+  c.globalAlpha = alpha;
+  c.beginPath();
+  if(pts) tracePath(c, pts, V.cell*RAD); else rectsOf(c, V, idxs);
+  c.fillStyle = color; c.fill();
+  c.restore();
+}
+/* Vòng sóng / quầng sáng: đường bao PHÌNH RA `grow` px rồi kẻ nét. */
+function halo(c, V, idxs, grow, w, alpha, color){
+  if(alpha <= 0.004 || w <= 0.05) return;
+  var pts = outline(idxs, COLS, ROWS, V.cell, V.bx, V.by, -grow);
+  if(!pts) return;
+  c.save();
+  c.globalAlpha = alpha;
+  c.beginPath(); tracePath(c, pts, V.cell*RAD + grow);
+  c.strokeStyle = color; c.lineWidth = w; c.lineJoin = 'round'; c.stroke();
+  c.restore();
+}
+/* Bụi vữa — vị trí tất định theo chỉ số, không dùng Math.random. */
+function dust(c, V, t){
+  var k = t<0 ? 0 : (t>1 ? 1 : t);
+  k = (k-0.02)/0.70;
+  if(k<=0 || k>=1) return;
+  var bb = bbox(V, HERO), cx=(bb[0]+bb[2])/2, cy=(bb[1]+bb[3])/2;
+  var rx=(bb[2]-bb[0])/2, ry=(bb[3]-bb[1])/2;
+  c.save();
+  for(var q=0;q<11;q++){
+    var a = q*(Math.PI*2/11) + 0.34;
+    var sp = 0.5 + ((q*37)%13)/26;
+    var d = k*sp;
+    var px = cx + Math.cos(a)*(rx + rx*0.5*d);
+    var py = cy + Math.sin(a)*(ry*0.55 + ry*0.5*d) + ry*0.55 + k*k*V.cell*0.30;
+    c.globalAlpha = (1-k)*0.46;
+    c.beginPath(); c.arc(px, py, V.cell*0.055*(1-k*0.5), 0, Math.PI*2);
+    c.fillStyle = shade(T.linen, -0.07); c.fill();
+  }
+  c.restore();
+}
+
+/* ==========================================================================
+ * 4. Khay + board nền
+ * ------------------------------------------------------------------------
+ * `jolt(dist)` trả hệ số co cho thứ cách khối vừa đặt `dist` ô. Kiểu B truyền
+ * hàm này vào; ba kiểu kia truyền null và board đứng yên.
+ * ========================================================================*/
+function drawChip(c, V, full, pulse){
+  var w=V.chipW, h=V.chipH, x=V.chipX, y=V.chipY, d=V.dcell;
+  if(pulse > 0){
+    c.save();
+    c.globalAlpha = (1-pulse)*0.55;
+    var grow = 1 + pulse*0.30;
+    rr(c, x-(w*grow-w)/2, y-(h*grow-h)/2, w*grow, h*grow, 12*grow);
+    c.strokeStyle = T.accent; c.lineWidth = Math.max(1.5, d*0.14); c.stroke();
+    c.restore();
+  }
+  c.save();
+  c.globalAlpha = full ? 1 : 0.36;
+  rr(c, x, y, w, h, 11);
+  c.fillStyle = T.paper; c.fill();
+  c.strokeStyle = rgba(T.ink, 0.14); c.lineWidth = 1; c.stroke();
+  var sx = x + (w - 3*d)/2, sy = y + (h - 2*d)/2 - d*0.16;
+  for(var r2=0;r2<2;r2++) for(var cc=0;cc<3;cc++)
+    tile(c, sx+cc*d, sy+r2*d, d, T.block, GROUT*1.6, false);
+  c.fillStyle = rgba(T.ink, 0.62);
+  c.font = '600 ' + Math.round(d*0.46) + 'px "Be Vietnam Pro", system-ui, sans-serif';
+  c.textAlign = 'right'; c.textBaseline = 'alphabetic';
+  c.fillText('×'+(full?1:0), x+w-6, y+h-5);
+  c.restore();
+}
+function drawBoard(c, V, showHeroSlots, jolt){
+  c.fillStyle = T.linen;
+  c.fillRect(0, 0, V.w, V.h);
+  var hero = {};
+  HERO.forEach(function(i){ hero[i] = 1; });
+  for(var i=0;i<COLS*ROWS;i++){
+    if(!inPic[i] || hero[i]) continue;
+    var rc = rcOf(i), x = V.bx+rc[1]*V.cell, y = V.by+rc[0]*V.cell;
+    var s = jolt ? jolt(DIST_TILE[i]) : 1;
+    if(s === 1){ tile(c, x, y, V.cell, slotOf(i), GROUT, false); continue; }
+    c.save();
+    c.translate(x+V.cell/2, y+V.cell/2); c.scale(s,s); c.translate(-x-V.cell/2, -y-V.cell/2);
+    tile(c, x, y, V.cell, slotOf(i), GROUT, false);
+    c.restore();
+  }
+  if(showHeroSlots) HERO.forEach(function(i){
+    var rc = rcOf(i);
+    tile(c, V.bx+rc[1]*V.cell, V.by+rc[0]*V.cell, V.cell, slotOf(i), GROUT, false);
+  });
+  STATIC.forEach(function(b){
+    var s = jolt ? jolt(DIST_BLOCK[b.id]) : 1;
+    if(s === 1){ drawBlock(c, V, b.idxs, b.id, 1); return; }
+    xform(c, V, b.idxs, s, s, 0, 0, function(){ drawBlock(c, V, b.idxs, b.id, 1); });
+  });
+}
+
+/* ==========================================================================
+ * 5. Bốn kiểu ĐÁP XUỐNG + một cú HỦY dùng chung (kiểu 4 đã chốt)
+ * ========================================================================*/
+function outCubic(t){ return 1 - Math.pow(1-t, 3); }
+function outQuart(t){ return 1 - Math.pow(1-t, 4); }
+function inCubic(t){ return t*t*t; }
+function clamp01(v){ return v<0 ? 0 : (v>1 ? 1 : v); }
+/* Quá đà rồi về — đỉnh khoảng 1,07 */
+function outBack(t){
+  var c1 = 1.36;
+  return 1 + (c1+1)*Math.pow(t-1,3) + c1*Math.pow(t-1,2);
+}
+
+var MS_OUT = 320;
+/* HỦY — kiểu 4: bay ngược về ô khay theo vòng cung, nhỏ dần rồi tan. */
+function flyBack(c, V, t){
+  var bb = bbox(V, HERO), hx=(bb[0]+bb[2])/2, hy=(bb[1]+bb[3])/2;
+  var tx = V.chipX + V.chipW/2, ty = V.chipY + V.chipH/2;
+  var u = inCubic(t);
+  var ox = (tx-hx)*u, oy = (ty-hy)*u - Math.sin(Math.PI*u)*V.cell*0.55;
+  var s = 1 - (1 - V.dcell/V.cell)*u;
+  var a = clamp01(1 - Math.max(0, (t-0.72)/0.28));
+  xform(c, V, HERO, s, s, ox, oy, function(){
+    blockShadow(c, V, HERO, V.cell*(0.22+0.55*u), V.cell*(0.06+0.24*u), 0.16+0.20*u, a);
+    drawBlock(c, V, HERO, HERO_ID, a);
+  });
+}
+
+var STYLES = [
+{ n:'A', name:'Dập khuôn', msIn:230,
+  note:'Khối nện xuống từ <b>1,16</b> trong 155 ms đầu, mặt gốm loé một ánh chớp; chạm xong thì <b>một vòng sóng chạy ra khỏi mép khối</b> rồi tan.',
+  when:'Dứt khoát nhất, và vòng sóng khiến cú đặt <em>có tiếng vang</em> mà không phải kéo dài thời lượng. Rủi ro: đặt hai khối sát nhau thì hai vòng chồng lên nhau.',
+  draw:function(c, V, t){
+    var e = outQuart(clamp01(t/0.68));
+    var s = 1.16 - 0.16*e;
+    var a = clamp01(t*3.2);
+    xform(c, V, HERO, s, s, 0, 0, function(){
+      blockShadow(c, V, HERO, V.cell*0.55*(1-e), V.cell*0.16*(1-e), 0.30*(1-e), a);
+      drawBlock(c, V, HERO, HERO_ID, a);
+      flash(c, V, HERO, 0.24*Math.max(0, 1 - t/0.46), '#FFFFFF');
+    });
+    var k = clamp01((t-0.50)/0.50);
+    if(k > 0 && k < 1)
+      halo(c, V, HERO, V.cell*0.62*outCubic(k), Math.max(1, V.cell*0.10*(1-k)),
+           (1-k)*(1-k)*0.55, rgba(T.ink, 1));
+  } },
+
+{ n:'B', name:'Board rung theo', msIn:380,
+  note:'Khối đáp gọn trong 110 ms, rồi <b>cả những khối xung quanh lún theo</b> — mỗi thứ chỉ lún 5% trong 150 ms, khối càng xa tâm cú đặt càng vào chậm, 46 ms cho mỗi ô cách nhau.',
+  when:'<em>Sinh động nhất</em> — không phải khối động mà cả bức tranh động, nên cú đặt có sức nặng mà bản thân khối không cần diễn gì nhiều. Đổi lại dài 380 ms và board càng đầy thì càng nhiều thứ nhúc nhích cùng lúc.',
+  board:function(t){
+    var wt = t*380 - 110;
+    if(wt < 0) return null;
+    return function(dist){
+      if(dist > 90) return 1;
+      var k = clamp01((wt - (dist-DIST_MIN)*46) / 150);
+      if(k <= 0 || k >= 1) return 1;
+      return 1 - 0.05*Math.sin(Math.PI*k);
+    };
+  },
+  draw:function(c, V, t){
+    var e = outQuart(clamp01(t/0.32));
+    var s = 1.10 - 0.10*e;
+    var a = clamp01(t*4.5);
+    xform(c, V, HERO, s, s, 0, 0, function(){
+      blockShadow(c, V, HERO, V.cell*0.42*(1-e), V.cell*0.12*(1-e), 0.26*(1-e), a);
+      drawBlock(c, V, HERO, HERO_ID, a);
+    });
+  } },
+
+{ n:'C', name:'Rơi & nảy', msIn:300,
+  note:'Rơi từ <b>gần một ô phía trên</b>, bóng đang to và nhoè thì thu về sắc gọn — đó mới là thứ đọc ra độ cao. Chạm mặt vữa thì <b>nén 15% rồi bật lại</b>, bụi bắn ra ở chân khối.',
+  when:'Có <em>trọng lượng</em> nhất, đúng chất gạch gốm chứ không phải thẻ nhựa. Đổi lại khối còn dao động thêm một nhịp sau khi đã chạm.',
+  draw:function(c, V, t){
+    var FALL = 0.52, sx, sy, oy, a;
+    if(t < FALL){
+      var u = t/FALL, e = u*u;                    // rơi nhanh dần
+      oy = -V.cell*0.95*(1-e); sx = 1; sy = 1; a = clamp01(t*4);
+      xform(c, V, HERO, sx, sy, 0, oy, function(){
+        blockShadow(c, V, HERO, V.cell*(0.15+0.65*(1-e)), V.cell*(0.05+0.40*(1-e)),
+                    0.34-0.16*(1-e), a);
+        drawBlock(c, V, HERO, HERO_ID, a);
+      });
+    } else {
+      var v = (t-FALL)/(1-FALL);
+      var qd = Math.exp(-4.2*v)*Math.cos(7.6*v);  // dao động tắt dần
+      sy = 1 - 0.15*qd; sx = 1 + 0.11*qd;
+      xform(c, V, HERO, sx, sy, 0, 0, function(){
+        blockShadow(c, V, HERO, V.cell*0.16, V.cell*0.05, 0.34, 1);
+        drawBlock(c, V, HERO, HERO_ID, 1);
+      });
+      dust(c, V, v);
+    }
+  } },
+
+{ n:'D', name:'Nở từ viên chạm', msIn:260,
+  note:'Các viên bung ra từ <b>viên ngón tay đang giữ</b> — cách nhau 30 ms, mỗi viên quá đà 7% rồi về. Viên nào tới nơi thì nhập ngay vào mảng; một <b>quầng đất nung</b> men theo đường bao rồi tắt.',
+  when:'Đọc ra <em>hình khối</em> rõ nhất — hợp luật khối không bao giờ xoay — và quầng sáng cho biết cả mảng này là <em>một</em> khối. Đổi lại thời lượng đi theo số ô.',
+  draw:function(c, V, t){
+    var STAG = 30, DUR = 140, total = STAG*WAVE_MAX + DUR;   // = 230
+    var landed = [], busy = [];
+    for(var q=0;q<HERO.length;q++){
+      var k = clamp01((t*260 - WAVE[q]*STAG) / DUR);
+      if(k >= 1) landed.push(HERO[q]);
+      else if(k > 0) busy.push([HERO[q], k]);
+    }
+    if(landed.length) drawBlock(c, V, landed, HERO_ID, 1);
+    busy.forEach(function(p){
+      drawLoose(c, V, p[0], HERO_ID, clamp01(p[1]*2), 0.5 + 0.5*outBack(p[1]));
+    });
+    var g = clamp01((t*260 - total*0.55) / (260 - total*0.55));
+    if(g > 0 && g < 1)
+      halo(c, V, HERO, V.cell*0.05, Math.max(1.2, V.cell*0.11), (1-g)*0.5, T.accent);
+  } }
+];
+
+/* ==========================================================================
+ * 6. Thẻ demo — mỗi thẻ một canvas, một máy trạng thái
+ * ========================================================================*/
+var HOLD_ON = 820, HOLD_OFF = 520, PULSE_MS = 420;
+var speed = 1, looping = true, withCancel = true;
+if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+  looping = false;
+
+var cards = [];
+var grid = document.getElementById('grid');
+
+STYLES.forEach(function(S){
+  var el = document.createElement('section');
+  el.className = 'card';
+  el.innerHTML =
+    '<h2><span class="num">KIỂU ' + S.n + '</span>' + S.name + '</h2>' +
+    '<div class="stage"><canvas></canvas></div>' +
+    '<p class="note">' + S.note + '</p>' +
+    '<p class="when">' + S.when + '</p>' +
+    '<div class="acts">' +
+      '<button type="button" class="run" data-go="in">Đặt</button>' +
+      '<button type="button" class="run" data-go="out">Hủy</button>' +
+      '<span class="ms">' + S.msIn + ' ms · hủy ' + MS_OUT + ' ms</span>' +
+    '</div>';
+  grid.appendChild(el);
+
+  var cd = { S:S, cv:el.querySelector('canvas'), ph:'off', t0:0, pulse:-1e9 };
+  cd.ctx = cd.cv.getContext('2d');
+  el.querySelectorAll('[data-go]').forEach(function(b){
+    b.addEventListener('click', function(){ go(cd, b.getAttribute('data-go')); });
+  });
+  cards.push(cd);
+});
+
+function go(cd, ph){
+  if(ph==='in'  && (cd.ph==='in'  || cd.ph==='on'))  return;
+  if(ph==='out' && (cd.ph==='out' || cd.ph==='off')) return;
+  cd.ph = ph;
+  cd.t0 = performance.now();
+}
+function durOf(cd){ return (cd.ph==='in' ? cd.S.msIn : MS_OUT) / speed; }
+
+function view(cd){
+  var cv = cd.cv, dpr = Math.min(3, window.devicePixelRatio || 1);
+  var w = cv.clientWidth, h = cv.clientHeight;
+  if(cv.width !== Math.round(w*dpr) || cv.height !== Math.round(h*dpr)){
+    cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr);
+  }
+  cd.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  var cell = Math.min((w-30)/COLS, (h-96)/ROWS);
+  cell = Math.max(14, Math.min(42, cell));
+  var d = cell*0.46;
+  var V = { w:w, h:h, cell:cell, dcell:d, bx:(w - COLS*cell)/2, by:14 };
+  V.chipW = 3*d + 22; V.chipH = 2*d + 26;
+  V.chipX = (w - V.chipW)/2;
+  V.chipY = Math.min(h - V.chipH - 12, V.by + ROWS*cell + 18);
+  return V;
+}
+
+function paint(cd, now){
+  var V = view(cd), c = cd.ctx, S = cd.S;
+  var t = clamp01((now - cd.t0) / durOf(cd));
+
+  var jolt = (cd.ph==='in' && S.board) ? S.board(t) : null;
+  /* Ô trống dưới khối vẫn phải có: khối đang mờ dần thì nhìn xuyên qua nó. */
+  drawBoard(c, V, cd.ph !== 'on', jolt);
+
+  if(cd.ph === 'on')      drawBlock(c, V, HERO, HERO_ID, 1);
+  else if(cd.ph === 'in') S.draw(c, V, t);
+  else if(cd.ph === 'out') flyBack(c, V, t);
+
+  var pulse = clamp01((now - cd.pulse) / (PULSE_MS/speed));
+  drawChip(c, V, cd.ph==='off', (cd.pulse > -1e8 && pulse < 1) ? pulse : 0);
+}
+
+function step(cd, now){
+  if(cd.ph==='in' || cd.ph==='out'){
+    if(now - cd.t0 >= durOf(cd)){
+      if(cd.ph==='out') cd.pulse = now;
+      cd.ph = (cd.ph==='in') ? 'on' : 'off';
+      cd.t0 = now;
+    }
+    return;
+  }
+  if(!looping) return;
+  var hold = (cd.ph==='on' ? HOLD_ON : HOLD_OFF) / speed;
+  if(now - cd.t0 < hold) return;
+  if(cd.ph === 'on'){
+    /* Tắt "kèm hủy" thì khối biến mất không kèn trống — cái đang so là lúc ĐẶT. */
+    if(withCancel) go(cd, 'out');
+    else { cd.ph = 'off'; cd.t0 = now; }
+  } else go(cd, 'in');
+}
+
+function frame(now){
+  for(var q=0;q<cards.length;q++){ step(cards[q], now); paint(cards[q], now); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ------------------------------------------------------------------ nút */
+document.querySelectorAll('.seg [data-sp]').forEach(function(b){
+  b.addEventListener('click', function(){
+    speed = parseFloat(b.getAttribute('data-sp'));
+    document.querySelectorAll('.seg [data-sp]').forEach(function(o){
+      o.setAttribute('aria-pressed', String(o === b));
+    });
+  });
+});
+document.getElementById('btnAll').addEventListener('click', function(){
+  cards.forEach(function(cd){ cd.ph='off'; cd.t0=performance.now(); cd.pulse=-1e9; });
+  cards.forEach(function(cd){ go(cd, 'in'); });
+});
+var btnCancel = document.getElementById('btnCancel');
+btnCancel.addEventListener('click', function(){
+  withCancel = !withCancel;
+  btnCancel.setAttribute('aria-pressed', String(withCancel));
+});
+var btnLoop = document.getElementById('btnLoop');
+btnLoop.setAttribute('aria-pressed', String(looping));
+btnLoop.addEventListener('click', function(){
+  looping = !looping;
+  btnLoop.setAttribute('aria-pressed', String(looping));
+  if(looping) cards.forEach(function(cd){ cd.t0 = performance.now(); });
+});
+
+})();
+</script>

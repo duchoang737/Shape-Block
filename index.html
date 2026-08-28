@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#EFE3D0">
+<title>Cozy Mosaic</title>
+<style>
+  :root{
+    --linen:#EFE3D0; --paper:#FFFDF8; --slot:#F0E6D6;
+    --block:#D8C2A4; --accent:#C4794A; --ink:#5B4B34;
+    --ink-soft:#A08F76;
+    --line:rgba(91,75,52,.14);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; overflow:hidden; }
+  body{
+    background:var(--linen);
+    background-image:
+      radial-gradient(rgba(91,75,52,.035) 1px, transparent 1px),
+      radial-gradient(rgba(255,255,255,.5) 1px, transparent 1px);
+    background-size:7px 7px, 7px 7px;
+    background-position:0 0, 3px 3px;
+    color:var(--ink);
+    font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    user-select:none; -webkit-user-select:none;
+  }
+  body.dragging{ cursor:grabbing; }
+
+  #app{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+        padding:calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)); }
+
+  /* Doc §06: "nền linen ấm, BOARD là card giấy trắng". Card giấy chỉ bọc riêng
+   * board — phần còn lại là nền linen, nên chỗ trống đọc ra là lề trang chứ
+   * không phải một mảng giấy trắng bỏ không. */
+  #card{
+    width:min(430px,100%); height:100%; max-height:960px;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  #card.nudge{ animation:nudge .34s ease; }
+  @keyframes nudge{ 0%,100%{transform:none} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+
+  /* ---------------------------------------------------------------- header */
+  header{ display:flex; align-items:center; gap:6px; padding:14px 14px 4px; flex:0 0 auto; }
+  .lvl{ flex:1; text-align:center; line-height:1.05; }
+  .lvl span{ display:block; font-size:9.5px; letter-spacing:.22em; color:var(--ink-soft); }
+  .lvl b{ display:block; font:600 25px/1.1 Georgia,"Times New Roman",serif; }
+
+  /* --------------------------------------------------------------- nút ảnh
+   * Mỗi nút là một đĩa gốm do `codeb image` sinh, nằm giữa một nền lanh phẳng.
+   * Khung bo tròn 50% nên bốn góc nền bị cắt đi — không phải khớp màu nền, và
+   * nút đặt lên đâu cũng được.
+   * --z chỉnh riêng từng nút: mỗi lần sinh ảnh cái đĩa to nhỏ một khác, phải
+   * kéo cho đường kính bằng nhau thì hàng nút mới đều. */
+  .ib{
+    border:0; padding:0; background:none; cursor:pointer;
+    width:var(--d,44px); height:var(--d,44px); border-radius:50%;
+    background-image:var(--img); background-repeat:no-repeat;
+    background-position:center; background-size:calc(100% * var(--z,1.42)) auto;
+    transition:transform .1s, filter .15s;
+  }
+  .ib:active{ transform:translateY(2px) scale(.96); }
+  .ib.off{ filter:grayscale(.6) opacity(.45); }
+  .i-restart { --img:url("assets/btn/restart.png");  --z:1.46 }
+  .i-settings{ --img:url("assets/btn/settings.png"); --z:1.22 }
+  .i-eye     { --img:url("assets/btn/eye.png");      --z:1.42 }
+  .i-gallery { --img:url("assets/btn/gallery.png");  --z:1.26 }
+  .i-sound   { --img:url("assets/btn/sound.png");    --z:1.42 }
+  .i-vibrate { --img:url("assets/btn/vibrate.png");  --z:1.24 }
+  .i-close   { --img:url("assets/btn/close.png");    --z:1.24 }
+  .i-hint    { --img:url("assets/btn/hint.png");     --z:1.50 }
+  .i-undo    { --img:url("assets/btn/undo.png");     --z:1.44 }
+
+  /* ----------------------------------------------------------------- board */
+  /* Board + caption đi thành MỘT khối, căn giữa phần trống còn lại. Nếu để
+   * khay dính đáy thì toàn bộ khoảng trống dồn thành một cục ngay dưới caption. */
+  #stage{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column;
+          align-items:stretch; justify-content:center; overflow:hidden; }
+  #boardCard{
+    flex:0 0 auto; background:var(--paper); border-radius:22px; padding:12px 7px;
+    box-shadow:0 8px 22px rgba(91,75,52,.13), 0 1px 0 rgba(255,255,255,.9) inset;
+  }
+  #cv{ flex:0 0 auto; width:100%; display:block; touch-action:none; }
+
+  /* ------------------------------------------------------------------ khay */
+  #deck{
+    flex:0 0 auto; display:flex; gap:10px; align-items:stretch;
+    padding:12px 12px; overflow-x:auto; overflow-y:hidden;
+    justify-content:safe center;       /* khay vơi dần thì các ô còn lại tự dồn về giữa */
+    touch-action:pan-x;                /* trình duyệt lo cuộn ngang, mình lo vuốt lên */
+    scrollbar-width:none;
+    /* Ô to hơn nên khay chạm ngưỡng cuộn sớm hơn một ô. Vệt mờ hai mép để ô
+     * bị cắt đọc ra là "còn nữa, vuốt đi" chứ không phải một ô hỏng. Khay ít ô
+     * thì `safe center` dồn chúng vào giữa nên không ô nào chạm mép — vệt mờ
+     * tự vô hình, không phải bật tắt bằng JS. */
+    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 16px,
+                       #000 calc(100% - 16px),transparent 100%);
+            mask-image:linear-gradient(90deg,transparent 0,#000 16px,
+                       #000 calc(100% - 16px),transparent 100%);
+  }
+  #deck::-webkit-scrollbar{ display:none; }
+  /* Ô khay to hẳn lên cho dễ chạm: 80×86 thay vì 62×66. Ngón tay người lớn
+   * cần ~48px mỗi chiều mới bấm chắc, mà ô cũ còn phải chia chỗ cho số ×N.
+   * Đổi ba số dưới đây thì phải đổi luôn CHIP_ART trong src/render.js. */
+  .chip{
+    flex:0 0 auto; width:80px; height:86px; border-radius:17px;
+    border:1px solid var(--line); background:var(--paper);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    cursor:grab; padding:0; position:relative;
+    box-shadow:0 1px 2px rgba(91,75,52,.09);
+    overflow:hidden;
+    transition:opacity .16s ease, box-shadow .18s, transform .12s,
+               width .24s cubic-bezier(.4,0,.2,1), margin .24s cubic-bezier(.4,0,.2,1);
+  }
+  .chip-art{ display:grid; place-items:center; height:54px; }
+  .chip-n{ font-size:12px; color:var(--ink-soft); }
+  .chip-n b{ color:var(--ink); font-weight:700; }
+  /* Dùng hết thì ô KHAY BIẾN MẤT — co về bề rộng 0 rồi thu nốt khoảng cách.
+   * Gỡ khối trên board thì `.empty` rời ra và ô tự nở lại chỗ cũ. */
+  .chip.empty{
+    /* `min-width:0` là bắt buộc: ô khay là flex item, mà flex item mặc định
+     * `min-width:auto` — bề rộng bị chặn dưới bằng bề rộng nội dung, nên đặt
+     * `width:0` kiểu gì cũng vô hiệu, kể cả style inline. */
+    min-width:0; width:0; padding:0; opacity:0; border-width:0;
+    margin-right:-10px;                /* nuốt luôn khe gap của flex */
+    pointer-events:none; cursor:default;
+  }
+  /* KHAY TRÀN RA NGOÀI KHUNG — bôi mờ cái mép còn hàng ở phía đó.
+   * Thanh cuộn đã bị giấu (`scrollbar-width:none`) nên nếu không có vệt mờ thì
+   * không còn dấu hiệu nào cho biết bên kia vẫn còn ô: người chơi nhìn ô cuối
+   * bị cắt cụt và tưởng đó là lỗi hiển thị, chứ không nghĩ là kéo được.
+   * `.more-l` / `.more-r` do `deckEdges()` trong render.js bật tắt. */
+  #deck.more-l:not(.more-r){
+    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 26px);
+            mask-image:linear-gradient(90deg,transparent 0,#000 26px);
+  }
+  #deck.more-r:not(.more-l){
+    -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent 100%);
+            mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent 100%);
+  }
+  #deck.more-l.more-r{
+    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 26px,
+                                       #000 calc(100% - 26px),transparent 100%);
+            mask-image:linear-gradient(90deg,transparent 0,#000 26px,
+                                       #000 calc(100% - 26px),transparent 100%);
+  }
+  #deck.grabbing, #deck.grabbing .chip{ cursor:grabbing; }
+
+  .chip.hint{ box-shadow:0 0 0 2px var(--accent); }
+  .chip.sel{ box-shadow:0 0 0 3px var(--accent); transform:translateY(-3px); }
+  .chip:not(.empty):active{ transform:translateY(-2px); }
+
+  /* ------------------------------------------------------------------- nút */
+  /* Chơi lại đã lên thanh trên nên dưới này chỉ còn gợi ý + hoàn tác. */
+  #tools{ flex:0 0 auto; display:flex; justify-content:center; gap:36px;
+          padding:12px 14px calc(16px + env(safe-area-inset-bottom)); }
+  .tool{ background:none; border:0; padding:0; cursor:pointer; color:var(--ink);
+         display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .tool em{ font:600 10px system-ui; font-style:normal; opacity:.66; }
+
+  /* --------------------------------------------------------------- overlay */
+  #dragLayer{ position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:20; }
+
+
+  .ov{ position:fixed; inset:0; z-index:40; display:none;
+       align-items:center; justify-content:center; padding:22px;
+       background:rgba(91,75,52,.10); }        /* doc §03: lớp phủ tối chỉ 10% */
+  .ov.on{ display:flex; }
+  .panel{
+    width:min(330px,90vw); background:var(--paper); border-radius:22px;
+    padding:24px 22px; text-align:center;
+    box-shadow:0 22px 50px rgba(91,75,52,.30);
+    animation:rise .3s cubic-bezier(.2,.9,.3,1.15) both;
+  }
+  @keyframes rise{ from{ opacity:0; transform:translateY(14px) scale(.97);} to{ opacity:1; transform:none;} }
+  #winArt{ display:grid; place-items:center; margin-bottom:18px; }
+  #winArt svg{ width:100%; max-width:210px; height:auto; border-radius:10px;
+               box-shadow:0 4px 14px rgba(91,75,52,.18); }
+  .row{ display:flex; gap:10px; }
+  .btn{ flex:1; padding:13px 14px; border-radius:14px; border:1px solid var(--line);
+        background:var(--paper); color:var(--ink); cursor:pointer;
+        display:grid; place-items:center; }
+  .btn i{ font-style:normal; font-size:20px; line-height:1; }
+  .btn.primary{ background:var(--accent); color:#FFF7EE; border-color:transparent; }
+  .btn:active{ transform:scale(.97); }
+
+  /* ------------------------------------------------------------- cài đặt */
+  .sheet-hd{ display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .sheet-hd b{ flex:1; text-align:center; font:600 18px Georgia,serif; }
+  .sheet-hd .sp{ width:36px; flex:0 0 auto; }
+  .srow{
+    width:100%; background:none; border:0; color:var(--ink); cursor:pointer;
+    display:flex; align-items:center; gap:12px; padding:9px 2px; text-align:left;
+    border-bottom:1px solid var(--line);
+  }
+  .srow:last-child{ border-bottom:0; }
+  .srow b{ flex:1; font:600 13.5px system-ui; }
+  .srow em{ font:600 12px system-ui; font-style:normal; color:var(--ink-soft); }
+  .srow:active{ transform:scale(.99); }
+  .sw{ width:44px; height:26px; border-radius:13px; background:#DCCAAC; flex:0 0 auto;
+       position:relative; transition:background .2s; }
+  .sw::after{ content:''; position:absolute; top:3px; left:3px; width:20px; height:20px;
+              border-radius:50%; background:#fff; transition:transform .2s;
+              box-shadow:0 1px 3px rgba(91,75,52,.35); }
+  .srow.on .sw{ background:#8CA86E; }
+  .srow.on .sw::after{ transform:translateX(18px); }
+
+  /* ---------------------------------------------------------- phòng tranh */
+  #galGrid{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
+            max-height:54vh; overflow:auto; margin:0; }
+  .frame{ margin:0; background:var(--slot); border-radius:12px; padding:8px 6px 6px;
+          display:flex; flex-direction:column; align-items:center; gap:5px; cursor:pointer;
+          border:0; box-shadow:0 1px 2px rgba(91,75,52,.10); }
+  .frame .thumb{ width:100%; height:auto; max-height:70px; }
+  .frame b{ font:600 11px system-ui; color:var(--ink-soft); }
+  .frame.cur{ box-shadow:0 0 0 2px var(--accent); }
+  .frame.cur b{ color:var(--accent); }
+  .frame.locked{ opacity:.45; cursor:default; }
+  .frame:not(.locked):active{ transform:scale(.96); }
+  .thumb-empty{ width:100%; height:56px; border-radius:6px;
+                background:repeating-linear-gradient(45deg,rgba(91,75,52,.06) 0 5px,transparent 5px 10px); }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="card">
+
+    <header>
+      <button class="ib i-restart"  id="btnRestart"  type="button" aria-label="Chơi lại"></button>
+      <div class="lvl"><span>LEVEL</span><b id="hudLevel">1</b></div>
+      <button class="ib i-settings" id="btnSettings" type="button" aria-label="Cài đặt"></button>
+    </header>
+
+    <div id="stage">
+      <div id="boardCard"><canvas id="cv"></canvas></div>
+    </div>
+
+    <div id="deck"></div>
+
+    <div id="tools">
+      <button class="tool" id="btnHint" type="button" aria-label="Gợi ý">
+        <span class="ib i-hint" style="--d:54px"></span><em>Gợi ý</em></button>
+      <button class="tool" id="btnUndo" type="button" aria-label="Hoàn tác">
+        <span class="ib i-undo" style="--d:54px"></span><em>Hoàn tác</em></button>
+    </div>
+
+  </div>
+</div>
+
+<canvas id="dragLayer"></canvas>
+
+<div class="ov" id="win">
+  <div class="panel">
+    <div id="winArt"></div>
+    <div class="row">
+      <button class="btn" id="btnAgain" type="button" aria-label="Chơi lại"><i>↺</i></button>
+      <button class="btn primary" id="btnGo" type="button" aria-label="Màn sau"><i>›</i></button>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="settings">
+  <div class="panel">
+    <div class="sheet-hd">
+      <span class="sp"></span><b>Cài đặt</b>
+      <button class="ib i-close" id="setClose" type="button" aria-label="Đóng" style="--d:36px"></button>
+    </div>
+    <button class="srow" id="rowTint" type="button">
+      <span class="ib i-eye" style="--d:38px"></span><b>Xem tranh mờ dẫn đường</b><span class="sw"></span></button>
+    <button class="srow" id="rowGallery" type="button">
+      <span class="ib i-gallery" style="--d:38px"></span><b>Phòng tranh</b><em id="galCount">›</em></button>
+    <button class="srow" id="rowSound" type="button">
+      <span class="ib i-sound" style="--d:38px"></span><b>Âm thanh</b><span class="sw"></span></button>
+    <button class="srow" id="rowHaptic" type="button">
+      <span class="ib i-vibrate" style="--d:38px"></span><b>Rung</b><span class="sw"></span></button>
+  </div>
+</div>
+
+<div class="ov" id="gallery">
+  <div class="panel">
+    <div class="sheet-hd">
+      <span class="sp"></span><b>Phòng tranh</b>
+      <button class="ib i-close" id="galClose" type="button" aria-label="Đóng" style="--d:36px"></button>
+    </div>
+    <div id="galGrid"></div>
+  </div>
+</div>
+
+<script src="src/pictures.js"></script>
+<script src="src/shapes.js"></script>
+<script src="src/gen.js"></script>
+<script src="src/render.js"></script>
+<script src="src/fx.js"></script>
+<script src="src/game.js"></script>
+</body>
+</html>

@@ -1,0 +1,748 @@
+<title>Đặt Khối &amp; Trả Khay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap">
+
+<style>
+:root{
+  --bg:#E7DFD3; --card:#FFFDF8; --ink:#332B22; --muted:#7A6D5C;
+  --rule:#D6CABA; --accent:#2F6F5E; --accent-ink:#FFFDF8;
+  --chip:#DFD4C3; --frame:#D2C5B2;
+  --shadow:0 1px 0 rgba(51,43,34,.05), 0 10px 26px -14px rgba(51,43,34,.42);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#201E1B; --card:#2B2825; --ink:#EFE7DA; --muted:#A6998A;
+    --rule:#3A3632; --accent:#79BCA5; --accent-ink:#1B2521;
+    --chip:#38342F; --frame:#453F38;
+    --shadow:0 1px 0 rgba(0,0,0,.3), 0 12px 30px -16px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#201E1B; --card:#2B2825; --ink:#EFE7DA; --muted:#A6998A;
+  --rule:#3A3632; --accent:#79BCA5; --accent-ink:#1B2521;
+  --chip:#38342F; --frame:#453F38;
+  --shadow:0 1px 0 rgba(0,0,0,.3), 0 12px 30px -16px rgba(0,0,0,.8);
+}
+
+*{ box-sizing:border-box; }
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Be Vietnam Pro", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased;
+}
+.wrap{ max-width:1080px; margin:0 auto; padding:40px 22px 72px; }
+
+/* ------------------------------------------------------------ đầu trang */
+header{ display:flex; flex-direction:column; gap:14px; padding-bottom:26px;
+  border-bottom:1px solid var(--rule); margin-bottom:30px; }
+.kicker{ font-size:11.5px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--muted); font-weight:600; }
+h1{ font-family:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  font-weight:800; font-size:clamp(30px,5.4vw,46px); line-height:1.04;
+  margin:0; letter-spacing:-.022em; text-wrap:balance; }
+.lede{ margin:0; max-width:64ch; color:var(--muted); font-size:16px; }
+.lede b{ color:var(--ink); font-weight:600; }
+
+/* ------------------------------------------------------------ thanh điều khiển */
+.bar{ display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center;
+  margin:0 0 26px; padding:12px 16px; background:var(--card);
+  border:1px solid var(--rule); border-radius:12px; box-shadow:var(--shadow); }
+.bar p{ margin:0; font-size:13.5px; color:var(--muted); flex:1 1 240px; }
+.bar b{ color:var(--ink); font-weight:600; }
+.seg{ display:flex; gap:0; border:1px solid var(--rule); border-radius:999px; overflow:hidden; }
+.seg button{ font:inherit; font-size:13px; font-weight:500; cursor:pointer;
+  padding:7px 13px; border:0; background:transparent; color:var(--ink);
+  font-variant-numeric:tabular-nums; transition:background .15s; }
+.seg button + button{ border-left:1px solid var(--rule); }
+.seg button:hover{ background:var(--chip); }
+.seg button[aria-pressed="true"]{ background:var(--accent); color:var(--accent-ink); }
+button.tog{ font:inherit; font-size:13px; font-weight:500; cursor:pointer;
+  padding:7px 14px; border-radius:999px; border:1px solid var(--rule);
+  background:transparent; color:var(--ink); transition:background .15s, border-color .15s; }
+button.tog:hover{ background:var(--chip); }
+button.tog[aria-pressed="true"]{ background:var(--accent); border-color:var(--accent);
+  color:var(--accent-ink); }
+button:focus-visible{ outline:2px solid var(--accent); outline-offset:3px; }
+
+/* ------------------------------------------------------------ lưới mẫu */
+.grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:22px; }
+@media (max-width:760px){ .grid{ grid-template-columns:1fr; } }
+
+.card{ background:var(--card); border:1px solid var(--rule); border-radius:14px;
+  box-shadow:var(--shadow); padding:16px 16px 18px; display:flex;
+  flex-direction:column; gap:12px; }
+.card h2{ font-family:"Bricolage Grotesque", ui-sans-serif, sans-serif;
+  font-weight:700; font-size:19px; margin:0; letter-spacing:-.01em;
+  display:flex; align-items:baseline; gap:9px; }
+.num{ font-size:12px; font-weight:600; color:var(--accent);
+  font-variant-numeric:tabular-nums; letter-spacing:.06em; }
+.stage{ position:relative; width:100%; height:238px; border-radius:10px;
+  overflow:hidden; border:1px solid var(--frame); }
+.stage canvas{ display:block; width:100%; height:100%; }
+.note{ margin:0; font-size:13.5px; color:var(--muted); }
+.note b{ color:var(--ink); font-weight:600; }
+.when{ margin:0; font-size:13px; color:var(--muted);
+  padding-left:11px; border-left:2px solid var(--rule); }
+.when em{ color:var(--ink); font-style:normal; font-weight:600; }
+.acts{ display:flex; gap:8px; align-items:center; }
+.acts .ms{ margin-left:auto; font-size:12px; color:var(--muted);
+  font-variant-numeric:tabular-nums; }
+button.run{ font:inherit; font-size:13px; font-weight:500; cursor:pointer;
+  padding:6px 15px; border-radius:8px; border:1px solid var(--rule);
+  background:transparent; color:var(--ink); transition:background .15s; }
+button.run:hover{ background:var(--chip); }
+
+/* ------------------------------------------------------------ bảng + kết */
+h3{ font-family:"Bricolage Grotesque", ui-sans-serif, sans-serif; font-weight:700;
+  font-size:22px; margin:44px 0 14px; letter-spacing:-.012em; }
+.scroll{ overflow-x:auto; border:1px solid var(--rule); border-radius:12px;
+  background:var(--card); box-shadow:var(--shadow); }
+table{ border-collapse:collapse; width:100%; min-width:620px; font-size:13.5px; }
+th, td{ text-align:left; padding:10px 14px; border-bottom:1px solid var(--rule);
+  vertical-align:top; }
+th{ font-weight:600; font-size:11.5px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--muted); }
+tbody tr:last-child td{ border-bottom:0; }
+td.n{ font-variant-numeric:tabular-nums; white-space:nowrap; }
+td b{ font-weight:600; }
+.tail{ margin:18px 0 0; max-width:66ch; color:var(--muted); font-size:14.5px; }
+.tail b{ color:var(--ink); font-weight:600; }
+code{ font-family:ui-monospace, "Cascadia Code", Consolas, monospace; font-size:12.5px;
+  background:var(--chip); padding:1px 5px; border-radius:4px; }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="kicker">Cozy Mosaic · Block Wow 5 · demo chọn kiểu</div>
+  <h1>Đặt khối &amp; trả khối về khay</h1>
+  <p class="lede">Hiện tại khối <b>hiện ra và biến mất tức thì</b> — không có gì bắc cầu giữa
+  hai khung hình. Bốn kiểu dưới đây là bốn cách bắc cái cầu đó, dựng bằng đúng bộ vẽ gốm của
+  <b>render.js</b>: cùng mạch vữa 2,2%, cùng bo góc 9%, cùng vệt vát và viền sáng theo đường bao.
+  Cảnh là màn 1 — bánh kem; khối 3×2 nằm vắt qua hai vùng màu, đúng luật 4.</p>
+</header>
+
+<div class="bar">
+  <p><b>Chạy cả bốn</b> để so cùng lúc, hoặc bấm Đặt / Hủy trong từng ô.
+     Chậm lại để soi từng khung.</p>
+  <div class="seg" role="group" aria-label="Tốc độ phát">
+    <button type="button" data-sp="1" aria-pressed="true">1×</button>
+    <button type="button" data-sp="0.4" aria-pressed="false">0,4×</button>
+    <button type="button" data-sp="0.15" aria-pressed="false">0,15×</button>
+  </div>
+  <button type="button" class="tog" id="btnAll">Chạy cả bốn</button>
+  <button type="button" class="tog" id="btnLoop" aria-pressed="true">Tự lặp</button>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<h3>Đo lại thành bảng</h3>
+<div class="scroll">
+<table>
+  <thead><tr>
+    <th>Kiểu</th><th class="n">Đặt</th><th class="n">Hủy</th>
+    <th>Được</th><th>Mất</th>
+  </tr></thead>
+  <tbody>
+    <tr><td><b>1 · Ấn vào vữa</b></td><td class="n">180 ms</td><td class="n">150 ms</td>
+      <td>Êm, không cướp mắt; đặt liên tục 20 nước không thấy mệt.</td>
+      <td>Khối về khay gần như <b>không nhận ra</b> nếu mắt đang ở chỗ khác.</td></tr>
+    <tr><td><b>2 · Lan theo viên</b></td><td class="n">252 ms</td><td class="n">222 ms</td>
+      <td>Đọc ra <b>hình khối</b> rõ nhất — hợp luật khối không xoay.</td>
+      <td>Dài theo số ô: khối 8 ô thành 388 ms.</td></tr>
+    <tr><td><b>3 · Nảy gốm</b></td><td class="n">320 ms</td><td class="n">250 ms</td>
+      <td>Phản hồi mạnh nhất, đã tay nhất.</td>
+      <td>Gốm mà nảy như cao su; màn 98 ô thì mỗi nước một cú nảy là mệt.</td></tr>
+    <tr><td><b>4 · Về khay</b></td><td class="n">300 ms</td><td class="n">320 ms</td>
+      <td><b>Dạy luật</b>: thấy tận mắt khối đi đâu về đâu (luật 6 và 8).</td>
+      <td>Dài nhất, và có chuyển động chạy ngang màn hình mỗi nước đi.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Chọn xong thì gắn vào đâu</h3>
+<p class="tail">Cả bốn kiểu đều <b>không cần vòng lặp mới</b> — <code>frame()</code> trong
+<code>game.js</code> đã gọi <code>requestAnimationFrame</code> mỗi khung hình sẵn rồi. Việc phải
+làm gọn trong ba chỗ: <code>doPlace()</code> và <code>doRemove()</code> ghi thêm mốc thời gian vào
+khối vừa đổi; <code>drawBlocks()</code> đọc mốc đó ra hệ số co giãn; riêng kiểu 4 cần thêm toạ độ
+ô khay, lấy từ <code>syncDeck()</code>. Khối đang <b>hủy</b> phải giữ lại để vẽ nốt sau khi
+<code>G.placements</code> đã xoá nó — đó là chỗ duy nhất động vào cấu trúc dữ liệu.</p>
+<p class="tail">Trộn được: ví dụ <b>đặt kiểu 1, hủy kiểu 4</b> — đặt thì êm, còn lúc khối rời board
+thì cho nó bay về khay để người chơi thấy nó không mất đi đâu cả.</p>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ==========================================================================
+ * 1. Bộ vẽ gốm — chép từ src/render.js để demo và game không lệch nhau
+ * ========================================================================*/
+var T = { linen:'#EFE3D0', paper:'#FFFDF8', slot:'#F0E6D6',
+          block:'#D8C2A4', accent:'#C4794A', ink:'#5B4B34' };
+var GROUT = 0.022, RAD = 0.09;
+
+function hexRGB(h){
+  h = h.replace('#','');
+  if(h.length===3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+}
+function toHex(r,g,b){
+  function c(n){ return Math.max(0,Math.min(255,Math.round(n))).toString(16).padStart(2,'0'); }
+  return '#'+c(r)+c(g)+c(b);
+}
+function mix(a,b,t){ var A=hexRGB(a), B=hexRGB(b);
+  return toHex(A[0]+(B[0]-A[0])*t, A[1]+(B[1]-A[1])*t, A[2]+(B[2]-A[2])*t); }
+function shade(hex,amt){ var c=hexRGB(hex); return toHex(c[0]+255*amt, c[1]+255*amt, c[2]+255*amt); }
+function rgba(hex,a){ var c=hexRGB(hex); return 'rgba('+c[0]+','+c[1]+','+c[2]+','+a+')'; }
+
+/* Lệch sắc độ tất định theo chỉ số — không dùng Math.random, nếu không thì mỗi
+ * khung hình một màu và board nhấp nháy. */
+function jitter(i){
+  var h = Math.imul(i ^ 0x9e3779b9, 2654435761) >>> 0;
+  return ((h % 1000)/1000 - 0.5) * 0.055;
+}
+
+function rr(c,x,y,w,h,r){
+  r = Math.min(r, w/2, h/2);
+  c.beginPath(); c.moveTo(x+r,y);
+  c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
+  c.arcTo(x,y+h,x,y,r);     c.arcTo(x,y,x+w,y,r);
+  c.closePath();
+}
+
+/* Ô gốm rời: mặt mờ, một vệt sáng ở mép trên, một vệt tối ở mép dưới. */
+function tile(c,x,y,s,color,gapK,sunken){
+  var g = s*(gapK==null ? GROUT : gapK), S = s-2*g, r = s*RAD;
+  if(S<=0.5) return;
+  var X=x+g, Y=y+g;
+  rr(c,X,Y,S,S,r); c.fillStyle=color; c.fill();
+  c.save(); c.clip();
+  var gr = c.createLinearGradient(X,Y,X,Y+S);
+  if(sunken){
+    gr.addColorStop(0,'rgba(0,0,0,.20)'); gr.addColorStop(.35,'rgba(0,0,0,.02)');
+    gr.addColorStop(1,'rgba(255,255,255,.10)');
+  } else {
+    gr.addColorStop(0,'rgba(255,255,255,.20)'); gr.addColorStop(.5,'rgba(255,255,255,0)');
+    gr.addColorStop(1,'rgba(0,0,0,.10)');
+  }
+  c.fillStyle=gr; c.fillRect(X,Y,S,S);
+  c.restore();
+}
+
+/* Đường bao của một mảng ô: đi vòng quanh mép, không phải ghép chữ nhật —
+ * ghép thì mỗi góc lõm còn thừa một cái mấu bằng đúng bề rộng mạch vữa. */
+function outline(idxs, cols, rows, cell, bx, by, inset){
+  var set = {}, q;
+  for(q=0;q<idxs.length;q++) set[idxs[q]] = 1;
+  function has(r,c){ return r>=0 && r<rows && c>=0 && c<cols && set[r*cols+c]===1; }
+  var from = {};
+  function push(x1,y1,x2,y2){
+    var k = x1+','+y1;
+    if(!from[k]) from[k] = [];
+    from[k].push([x2,y2]);
+  }
+  for(q=0;q<idxs.length;q++){
+    var i=idxs[q], r=(i/cols)|0, c=i%cols;
+    if(!has(r-1,c)) push(c,   r,   c+1, r  );
+    if(!has(r,c+1)) push(c+1, r,   c+1, r+1);
+    if(!has(r+1,c)) push(c+1, r+1, c,   r+1);
+    if(!has(r,c-1)) push(c,   r+1, c,   r  );
+  }
+  var keys = Object.keys(from);
+  if(!keys.length) return null;
+  var cur = keys[0].split(',').map(Number), pts = [], guard = idxs.length*4 + 8;
+  while(guard-- > 0){
+    var list = from[cur[0]+','+cur[1]];
+    if(!list || !list.length) break;
+    pts.push(cur);
+    cur = list.shift();
+    if(cur[0]===pts[0][0] && cur[1]===pts[0][1]) break;
+  }
+  if(pts.length < 4) return null;
+  var left = 0;
+  for(q=0;q<keys.length;q++) left += from[keys[q]].length;
+  if(left) return null;
+
+  var keep = [], t;
+  for(t=0;t<pts.length;t++){
+    var a=pts[(t-1+pts.length)%pts.length], b=pts[t], d=pts[(t+1)%pts.length];
+    if((a[0]===b[0] && b[0]===d[0]) || (a[1]===b[1] && b[1]===d[1])) continue;
+    keep.push(b);
+  }
+  if(keep.length < 4) return null;
+
+  var out = [];
+  for(t=0;t<keep.length;t++){
+    var p0=keep[(t-1+keep.length)%keep.length], p1=keep[t], p2=keep[(t+1)%keep.length];
+    var d1x=Math.sign(p1[0]-p0[0]), d1y=Math.sign(p1[1]-p0[1]);
+    var d2x=Math.sign(p2[0]-p1[0]), d2y=Math.sign(p2[1]-p1[1]);
+    var nx = -d1y + -d2y, ny = d1x + d2x;
+    out.push([ bx + p1[0]*cell + nx*inset, by + p1[1]*cell + ny*inset ]);
+  }
+  return out;
+}
+
+/* Đa giác đã bo: bắt đầu ở giữa một cạnh rồi arcTo qua từng đỉnh — arcTo bo
+ * được cả góc lồi lẫn góc lõm. */
+function tracePath(c, pts, rad){
+  var n = pts.length;
+  function mid(a,b){ return [(a[0]+b[0])/2, (a[1]+b[1])/2]; }
+  var m0 = mid(pts[n-1], pts[0]);
+  c.moveTo(m0[0], m0[1]);
+  for(var t=0;t<n;t++){
+    var prev=pts[(t-1+n)%n], cur=pts[t], nxt=pts[(t+1)%n];
+    var m = mid(cur,nxt);
+    var lenA = Math.hypot(cur[0]-prev[0], cur[1]-prev[1]);
+    var lenB = Math.hypot(nxt[0]-cur[0], nxt[1]-cur[1]);
+    var r = Math.max(0, Math.min(rad, lenA/2, lenB/2));
+    c.arcTo(cur[0], cur[1], m[0], m[1], r);
+    c.lineTo(m[0], m[1]);
+  }
+  c.closePath();
+}
+
+/* ==========================================================================
+ * 2. Cảnh — màn 1 "Bánh kem", lấy nguyên art + palette từ src/pictures.js
+ * ========================================================================*/
+var ART = ["..cc..","ffffff","pppppp","bbbbbb"];
+var PAL = { c:'#FFC93C', f:'#FF8FB1', p:'#F7B733', b:'#8A4B2A' };
+var COLS = 6, ROWS = 4;
+
+var inPic = [], colorAt = [];
+for(var r=0;r<ROWS;r++) for(var c2=0;c2<COLS;c2++){
+  var ch = ART[r][c2], i = r*COLS + c2;
+  inPic[i] = ch !== '.';
+  colorAt[i] = PAL[ch] || T.slot;
+}
+
+/* Khối đứng yên làm nền cảnh + khối 3×2 để diễn. ANCHOR là viên ngón tay giữ. */
+var STATIC = [ {id:1, idxs:[2,3]}, {id:2, idxs:[6,7,12,13]},
+               {id:3, idxs:[11,17]}, {id:4, idxs:[18,19,20,21,22,23]} ];
+var HERO = [8,9,10,14,15,16], HERO_ID = 7, ANCHOR = 8;
+
+/* Bậc sóng của kiểu 2: khoảng cách Manhattan từ viên đã chạm. */
+var WAVE = HERO.map(function(i){
+  var ar=(ANCHOR/COLS)|0, ac=ANCHOR%COLS, br=(i/COLS)|0, bc=i%COLS;
+  return Math.abs(ar-br) + Math.abs(ac-bc);
+});
+var WAVE_MAX = Math.max.apply(null, WAVE);
+
+/* Màu trung bình của khối — dùng cho lớp đổ bóng, để bóng không bị ám đen. */
+var HERO_AVG = (function(){
+  var s=[0,0,0];
+  HERO.forEach(function(i){ var c=hexRGB(colorAt[i]); s[0]+=c[0]; s[1]+=c[1]; s[2]+=c[2]; });
+  return toHex(s[0]/HERO.length, s[1]/HERO.length, s[2]/HERO.length);
+})();
+
+function faceOf(i, pid){ return shade(colorAt[i], jitter(pid*1013)); }
+function slotOf(i){ return mix(T.slot, colorAt[i], 0.12); }
+
+/* ==========================================================================
+ * 3. Vẽ khối — một đường bao, một lần cắt, một vệt vát (giống drawBlocks)
+ * ========================================================================*/
+function bbox(V, idxs){
+  var x0=1e9, y0=1e9, x1=-1e9, y1=-1e9;
+  idxs.forEach(function(i){
+    var row=(i/COLS)|0, c=i%COLS;
+    x0=Math.min(x0, V.bx+c*V.cell);      x1=Math.max(x1, V.bx+(c+1)*V.cell);
+    y0=Math.min(y0, V.by+row*V.cell);    y1=Math.max(y1, V.by+(row+1)*V.cell);
+  });
+  return [x0,y0,x1,y1];
+}
+function rectsOf(c, V, idxs){
+  idxs.forEach(function(i){
+    var row=(i/COLS)|0, cc=i%COLS;
+    c.rect(V.bx+cc*V.cell, V.by+row*V.cell, V.cell, V.cell);
+  });
+}
+function paintCells(c, V, idxs, pid, darken){
+  var groups = {};
+  idxs.forEach(function(i){
+    var col = faceOf(i,pid);
+    if(!groups[col]) groups[col] = [];
+    groups[col].push(i);
+  });
+  Object.keys(groups).forEach(function(col){
+    c.beginPath();
+    groups[col].forEach(function(i){
+      var row=(i/COLS)|0, cc=i%COLS;
+      c.rect(V.bx+cc*V.cell-0.5, V.by+row*V.cell-0.5, V.cell+1, V.cell+1);
+    });
+    c.fillStyle = darken ? shade(col, darken) : col;
+    c.fill();
+  });
+}
+function drawBlock(c, V, idxs, pid, alpha){
+  if(!idxs.length) return;
+  var cell=V.cell, g=cell*GROUT, rad=cell*RAD;
+  var pts  = outline(idxs, COLS, ROWS, cell, V.bx, V.by, g);
+  var mort = outline(idxs, COLS, ROWS, cell, V.bx, V.by, 0);
+  var bb = bbox(V, idxs);
+
+  c.save();
+  c.globalAlpha = alpha;
+
+  /* vữa lót — khe giữa hai khối kề nhau mà để hở thì lộ nền gần trắng */
+  c.save(); c.beginPath();
+  if(mort) tracePath(c, mort, cell*0.05); else rectsOf(c, V, idxs);
+  c.clip(); paintCells(c, V, idxs, pid, -0.085); c.restore();
+
+  /* mặt khối + vệt vát chạy suốt cả khối */
+  c.save(); c.beginPath();
+  if(pts) tracePath(c, pts, rad); else rectsOf(c, V, idxs);
+  c.clip();
+  paintCells(c, V, idxs, pid, 0);
+  var gr = c.createLinearGradient(0, bb[1], 0, bb[3]);
+  gr.addColorStop(0,   'rgba(255,255,255,.20)');
+  gr.addColorStop(0.5, 'rgba(255,255,255,0)');
+  gr.addColorStop(1,   'rgba(0,0,0,.10)');
+  c.fillStyle = gr; c.fillRect(bb[0], bb[1], bb[2]-bb[0], bb[3]-bb[1]);
+  c.restore();
+
+  /* viền sáng bám ĐƯỜNG BAO — thứ làm cả mảng nổi lên như một miếng gốm dày */
+  if(pts){
+    var w = Math.max(1, cell*0.032);
+    var inner = outline(idxs, COLS, ROWS, cell, V.bx, V.by, g+w);
+    if(inner){
+      c.beginPath(); tracePath(c, pts, rad); tracePath(c, inner, Math.max(0, rad-w));
+      var gr2 = c.createLinearGradient(0, bb[1], 0, bb[3]);
+      gr2.addColorStop(0,    'rgba(255,255,255,.17)');
+      gr2.addColorStop(0.55, 'rgba(255,255,255,0)');
+      gr2.addColorStop(1,    'rgba(74,58,40,.11)');
+      c.fillStyle = gr2; c.fill('evenodd');
+    }
+  }
+  /* rãnh ranh khối — vẽ sau cùng mới cầm được độ đậm của nó */
+  if(mort && pts){
+    c.globalAlpha = alpha*0.11;
+    c.beginPath(); tracePath(c, mort, cell*0.05); tracePath(c, pts, rad);
+    c.fillStyle = '#4A3A28'; c.fill('evenodd');
+  }
+  c.restore();
+}
+/* Một viên rời khỏi mảng — dùng lúc sóng của kiểu 2 chưa khép */
+function drawLoose(c, V, i, pid, alpha, s){
+  var cell=V.cell, row=(i/COLS)|0, cc=i%COLS;
+  var x=V.bx+cc*cell, y=V.by+row*cell;
+  c.save(); c.globalAlpha = alpha;
+  c.translate(x+cell/2, y+cell/2); c.scale(s,s); c.translate(-x-cell/2, -y-cell/2);
+  tile(c, x, y, cell, faceOf(i,pid), GROUT, false);
+  c.restore();
+}
+/* Bóng đổ: tô chính đường bao bằng màu trung bình của khối rồi để canvas hắt
+ * bóng ra ngoài — mặt khối vẽ đè lên sau nên không thấy lớp lót này.
+ *
+ * `pa` PHẢI bằng độ mờ của mặt khối. Lót đục trong khi mặt khối đang tan thì
+ * khối không tan nữa, chỉ đổi thành một mảng màu trung bình. */
+function blockShadow(c, V, idxs, blur, dy, sa, pa){
+  if(sa <= 0.003 || pa <= 0.003) return;
+  var pts = outline(idxs, COLS, ROWS, V.cell, V.bx, V.by, V.cell*GROUT);
+  if(!pts) return;
+  c.save();
+  c.globalAlpha = pa;
+  c.shadowColor = 'rgba(74,58,40,'+sa.toFixed(3)+')';
+  c.shadowBlur = blur; c.shadowOffsetY = dy;
+  c.beginPath(); tracePath(c, pts, V.cell*RAD);
+  c.fillStyle = HERO_AVG; c.fill();
+  c.restore();
+}
+/* Co giãn / dời chỗ cả khối quanh tâm bao của nó */
+function xform(c, V, idxs, sx, sy, ox, oy, fn){
+  var bb = bbox(V, idxs), cx=(bb[0]+bb[2])/2, cy=(bb[1]+bb[3])/2;
+  c.save();
+  c.translate(cx+ox, cy+oy); c.scale(sx,sy); c.translate(-cx,-cy);
+  fn();
+  c.restore();
+}
+
+/* ==========================================================================
+ * 4. Khay + board nền
+ * ========================================================================*/
+function drawChip(c, V, full, pulse){
+  var w=V.chipW, h=V.chipH, x=V.chipX, y=V.chipY, d=V.dcell;
+  if(pulse > 0){
+    c.save();
+    c.globalAlpha = (1-pulse)*0.55;
+    var grow = 1 + pulse*0.30;
+    rr(c, x-(w*grow-w)/2, y-(h*grow-h)/2, w*grow, h*grow, 12*grow);
+    c.strokeStyle = T.accent; c.lineWidth = Math.max(1.5, d*0.14); c.stroke();
+    c.restore();
+  }
+  c.save();
+  c.globalAlpha = full ? 1 : 0.36;
+  rr(c, x, y, w, h, 11);
+  c.fillStyle = T.paper; c.fill();
+  c.strokeStyle = rgba(T.ink, 0.14); c.lineWidth = 1; c.stroke();
+  var sx = x + (w - 3*d)/2, sy = y + (h - 2*d)/2 - d*0.16;
+  for(var rr2=0; rr2<2; rr2++) for(var cc=0; cc<3; cc++)
+    tile(c, sx+cc*d, sy+rr2*d, d, T.block, GROUT*1.6, false);
+  c.fillStyle = rgba(T.ink, 0.62);
+  c.font = '600 ' + Math.round(d*0.46) + 'px "Be Vietnam Pro", system-ui, sans-serif';
+  c.textAlign = 'right'; c.textBaseline = 'alphabetic';
+  c.fillText('×'+(full?1:0), x+w-6, y+h-5);
+  c.restore();
+}
+function drawBoard(c, V, heroCells){
+  c.fillStyle = T.linen;
+  c.fillRect(0, 0, V.w, V.h);
+  var hero = {};
+  heroCells.forEach(function(i){ hero[i] = 1; });
+  for(var i=0;i<COLS*ROWS;i++){
+    if(!inPic[i]) continue;
+    var row=(i/COLS)|0, cc=i%COLS;
+    if(hero[i]) continue;
+    tile(c, V.bx+cc*V.cell, V.by+row*V.cell, V.cell, slotOf(i), GROUT, false);
+  }
+  STATIC.forEach(function(b){ drawBlock(c, V, b.idxs, b.id, 1); });
+}
+
+/* ==========================================================================
+ * 5. Bốn kiểu
+ * ------------------------------------------------------------------------
+ * Mỗi kiểu khai `msIn` / `msOut` và một hàm vẽ nhận `ph` (in | out | on) cùng
+ * `t` đã chuẩn hoá 0→1. Kiểu nào cần khay thì đọc V.chip*.
+ * ========================================================================*/
+function outCubic(t){ return 1 - Math.pow(1-t, 3); }
+function inCubic(t){ return t*t*t; }
+function clamp01(v){ return v<0 ? 0 : (v>1 ? 1 : v); }
+
+/* Bụi vữa của kiểu 3 — vị trí tất định theo chỉ số, không dùng Math.random */
+function dust(c, V, t, outward){
+  var bb = bbox(V, HERO), cx=(bb[0]+bb[2])/2, cy=(bb[1]+bb[3])/2;
+  var rx=(bb[2]-bb[0])/2, ry=(bb[3]-bb[1])/2;
+  var k = clamp01((t-0.05)/0.62);
+  if(k<=0 || k>=1) return;
+  c.save();
+  for(var q=0;q<9;q++){
+    var a = q*(Math.PI*2/9) + 0.34;
+    var sp = 0.55 + ((q*37)%11)/22;
+    var d = (outward ? 1 : 0.6) * k * sp;
+    var px = cx + Math.cos(a)*(rx + rx*0.55*d) ;
+    var py = cy + Math.sin(a)*(ry + ry*0.55*d) + k*k*V.cell*0.34;
+    var rad = V.cell*0.055*(1-k*0.55);
+    c.globalAlpha = (1-k)*0.5;
+    c.beginPath(); c.arc(px, py, rad, 0, Math.PI*2);
+    c.fillStyle = shade(T.linen, -0.06); c.fill();
+  }
+  c.restore();
+}
+
+var STYLES = [
+{ n:1, name:'Ấn vào vữa', msIn:180, msOut:150,
+  note:'Khối hiện ra to hơn <b>6%</b> rồi lún xuống đúng cỡ ô trong 180 ms, bóng dưới nó co lại theo. Hủy thì nó nổi lên một chút rồi tan.',
+  when:'Êm nhất, <em>không cướp mắt</em> khi đặt liên tục. Đổi lại nếu người chơi đang nhìn chỗ khác thì gần như không nhận ra khối vừa về khay.',
+  draw:function(c, V, ph, t){
+    if(ph==='on'){ drawBlock(c, V, HERO, HERO_ID, 1); return; }
+    var e, s, a;
+    if(ph==='in'){ e = outCubic(t); s = 1.06 - 0.06*e; a = clamp01(t*2.4); }
+    else         { e = inCubic(t);  s = 1 + 0.05*e;    a = 1 - clamp01(t*1.15); }
+    var lift = (ph==='in') ? (1-e) : e;
+    xform(c, V, HERO, s, s, 0, 0, function(){
+      blockShadow(c, V, HERO, V.cell*0.52*lift, V.cell*0.14*lift, 0.30*lift, a);
+      drawBlock(c, V, HERO, HERO_ID, a);
+    });
+  } },
+
+{ n:2, name:'Lan theo viên', msIn:252, msOut:222,
+  note:'Từng viên đáp xuống thành sóng, tính từ <b>viên ngón tay đang giữ</b> — cách nhau 34 ms. Viên nào đáp rồi thì <b>nhập ngay vào mảng</b>, mạch vữa giữa chúng biến mất. Hủy thì sóng chạy ngược, viên xa rời trước.',
+  when:'Đọc ra <em>hình khối</em> rõ nhất — hợp với luật khối không bao giờ xoay. Đổi lại thời lượng đi theo số ô: khối 8 ô thành 388 ms.',
+  draw:function(c, V, ph, t){
+    if(ph==='on'){ drawBlock(c, V, HERO, HERO_ID, 1); return; }
+    /* Bậc cuối phải KẾT THÚC đúng lúc pha kết thúc: STAG*WAVE_MAX + DUR = total.
+     * Lệch một chút thôi là viên cuối bị cắt ngang và nháy một cái. */
+    var STAG  = (ph==='in') ? 34  : 30;
+    var DUR   = (ph==='in') ? 150 : 132;
+    var total = STAG*WAVE_MAX + DUR;
+    var landed = [], busy = [];
+    for(var q=0;q<HERO.length;q++){
+      var wave = (ph==='in') ? WAVE[q] : (WAVE_MAX - WAVE[q]);
+      var k = clamp01((t*total - wave*STAG) / DUR);
+      if(ph==='in'){
+        if(k >= 1) landed.push(HERO[q]);
+        else if(k > 0) busy.push([HERO[q], k]);
+      } else {
+        if(k <= 0) landed.push(HERO[q]);
+        else if(k < 1) busy.push([HERO[q], 1-k]);
+      }
+    }
+    if(landed.length) drawBlock(c, V, landed, HERO_ID, 1);
+    busy.forEach(function(p){
+      var k = p[1];
+      /* nảy nhẹ quá 1 rồi về — viên gạch chạm mặt vữa thì phải dội một chút */
+      var e = outCubic(k), s = 0.58 + 0.46*e - 0.04*Math.sin(Math.PI*e);
+      drawLoose(c, V, p[0], HERO_ID, clamp01(k*1.8), s);
+    });
+  } },
+
+{ n:3, name:'Nảy gốm', msIn:320, msOut:250,
+  note:'Nảy có đàn hồi — <b>0,80 → 1,09 → 1,00</b> — kèm nén ngang khi giãn dọc, và một vòng <b>bụi vữa</b> bắn ra ở mép. Hủy thì khối nén xuống lấy đà rồi bật đi.',
+  when:'Phản hồi mạnh nhất, <em>đã tay nhất</em>. Rủi ro: gốm mà nảy như cao su, và ở màn 98 ô thì mỗi nước đi một cú nảy là mệt.',
+  draw:function(c, V, ph, t){
+    if(ph==='on'){ drawBlock(c, V, HERO, HERO_ID, 1); return; }
+    var s, a;
+    if(ph==='in'){
+      s = 1 - 0.20*Math.exp(-5.5*t)*Math.cos(9.4*t);
+      a = clamp01(t*3.4);
+    } else {
+      /* 0 → 0,30 nén xuống lấy đà; 0,30 → 1 bật lên rồi tan */
+      if(t < 0.30){ var u = t/0.30; s = 1 - 0.13*Math.sin(u*Math.PI/2); a = 1; }
+      else { var v = (t-0.30)/0.70; s = 0.87 + 0.44*outCubic(v); a = 1 - inCubic(v)*1.05; }
+      a = clamp01(a);
+    }
+    var k = s - 1;
+    var sx = 1 + k*0.72, sy = 1 + k*1.26;
+    xform(c, V, HERO, sx, sy, 0, 0, function(){
+      blockShadow(c, V, HERO, V.cell*0.40, V.cell*0.10, 0.20, a);
+      drawBlock(c, V, HERO, HERO_ID, a);
+    });
+    /* Bụi bay lúc BẬT, không phải lúc nén — nén là lấy đà, chưa có gì rời ra. */
+    dust(c, V, (ph==='in') ? t : (t-0.30)/0.70, ph==='out');
+  } },
+
+{ n:4, name:'Về khay', msIn:300, msOut:320,
+  note:'Khối <b>bay từ ô khay lên chỗ vừa thả</b> theo một vòng cung, bóng lớn dần rồi co lại lúc chạm mặt board. Hủy thì bay ngược về khay và <b>ô khay nháy một vòng sáng</b>.',
+  when:'<em>Dạy luật rõ nhất</em>: thấy tận mắt "chạm khối là nó về khay" (luật 8), và dùng lại được cho khối bị đè đẩy ra (luật 6). Đổi lại dài nhất và có chuyển động chạy ngang màn hình.',
+  draw:function(c, V, ph, t){
+    if(ph==='on'){ drawBlock(c, V, HERO, HERO_ID, 1); return; }
+    var bb = bbox(V, HERO), hx=(bb[0]+bb[2])/2, hy=(bb[1]+bb[3])/2;
+    var tx = V.chipX + V.chipW/2, ty = V.chipY + V.chipH/2;
+    var p = (ph==='in') ? outCubic(t) : inCubic(t);      // 1 = ở khay, 0 = ở board
+    var u = (ph==='in') ? (1-p) : p;
+    var ox = (tx-hx)*u, oy = (ty-hy)*u - Math.sin(Math.PI*u)*V.cell*0.55;
+    var s  = 1 - (1 - V.dcell/V.cell)*u;
+    var a  = (ph==='in') ? clamp01(t*5) : clamp01(1 - Math.max(0, (t-0.72)/0.28));
+    /* chạm mặt board thì lún một nhịp rất ngắn */
+    if(ph==='in' && t > 0.80) s *= 1 + 0.035*Math.sin((t-0.80)/0.20*Math.PI);
+    var lift = u;
+    xform(c, V, HERO, s, s, ox, oy, function(){
+      blockShadow(c, V, HERO, V.cell*(0.22+0.55*lift), V.cell*(0.06+0.24*lift), 0.16+0.20*lift, a);
+      drawBlock(c, V, HERO, HERO_ID, a);
+    });
+  } }
+];
+
+/* ==========================================================================
+ * 6. Thẻ demo — mỗi thẻ một canvas, một máy trạng thái
+ * ========================================================================*/
+var HOLD_ON = 900, HOLD_OFF = 520, PULSE_MS = 420;
+var speed = 1, looping = true;
+var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+if(reduce) looping = false;
+
+var cards = [];
+var grid = document.getElementById('grid');
+
+STYLES.forEach(function(S){
+  var el = document.createElement('section');
+  el.className = 'card';
+  el.innerHTML =
+    '<h2><span class="num">KIỂU ' + S.n + '</span>' + S.name + '</h2>' +
+    '<div class="stage"><canvas></canvas></div>' +
+    '<p class="note">' + S.note + '</p>' +
+    '<p class="when">' + S.when + '</p>' +
+    '<div class="acts">' +
+      '<button type="button" class="run" data-go="in">Đặt</button>' +
+      '<button type="button" class="run" data-go="out">Hủy</button>' +
+      '<span class="ms">' + S.msIn + ' / ' + S.msOut + ' ms</span>' +
+    '</div>';
+  grid.appendChild(el);
+
+  var cd = { S:S, cv:el.querySelector('canvas'), ph:'off', t0:0, pulse:-1e9 };
+  cd.ctx = cd.cv.getContext('2d');
+  el.querySelectorAll('[data-go]').forEach(function(b){
+    b.addEventListener('click', function(){ go(cd, b.getAttribute('data-go')); });
+  });
+  cards.push(cd);
+});
+
+function go(cd, ph){
+  if(ph==='in'  && (cd.ph==='in'  || cd.ph==='on'))  return;
+  if(ph==='out' && (cd.ph==='out' || cd.ph==='off')) return;
+  cd.ph = ph;
+  cd.t0 = performance.now();
+}
+
+function view(cd){
+  var cv = cd.cv, dpr = Math.min(3, window.devicePixelRatio || 1);
+  var w = cv.clientWidth, h = cv.clientHeight;
+  if(cv.width !== Math.round(w*dpr) || cv.height !== Math.round(h*dpr)){
+    cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr);
+  }
+  cd.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  var cell = Math.min((w-30)/COLS, (h-96)/ROWS);
+  cell = Math.max(14, Math.min(42, cell));
+  var d = cell*0.46;
+  var V = { w:w, h:h, cell:cell, dcell:d,
+            bx:(w - COLS*cell)/2, by:14 };
+  V.chipW = 3*d + 22; V.chipH = 2*d + 26;
+  V.chipX = (w - V.chipW)/2;
+  V.chipY = Math.min(h - V.chipH - 12, V.by + ROWS*cell + 18);
+  return V;
+}
+
+function paint(cd, now){
+  var V = view(cd), c = cd.ctx, S = cd.S;
+  var dur = (cd.ph==='in' ? S.msIn : S.msOut) / speed;
+  var t = clamp01((now - cd.t0) / dur);
+
+  drawBoard(c, V, (cd.ph==='off') ? [] : HERO);
+  if(cd.ph !== 'off'){
+    /* nền ô trống dưới khối vẫn phải có — khối đang mờ dần thì thấy xuyên qua */
+    if(cd.ph !== 'on'){
+      HERO.forEach(function(i){
+        var row=(i/COLS)|0, cc=i%COLS;
+        tile(c, V.bx+cc*V.cell, V.by+row*V.cell, V.cell, slotOf(i), GROUT, false);
+      });
+    }
+    S.draw(c, V, cd.ph, t);
+  }
+  var pulse = clamp01((now - cd.pulse) / (PULSE_MS/speed));
+  drawChip(c, V, cd.ph==='off', (cd.pulse > -1e8 && pulse < 1) ? pulse : 0);
+}
+
+function step(cd, now){
+  var S = cd.S;
+  if(cd.ph==='in' || cd.ph==='out'){
+    var dur = (cd.ph==='in' ? S.msIn : S.msOut) / speed;
+    if(now - cd.t0 >= dur){
+      if(cd.ph==='out' && S.n===4) cd.pulse = now;
+      cd.ph = (cd.ph==='in') ? 'on' : 'off';
+      cd.t0 = now;
+    }
+    return;
+  }
+  if(!looping) return;
+  var hold = (cd.ph==='on' ? HOLD_ON : HOLD_OFF) / speed;
+  if(now - cd.t0 >= hold) go(cd, cd.ph==='on' ? 'out' : 'in');
+}
+
+function frame(now){
+  for(var q=0;q<cards.length;q++){ step(cards[q], now); paint(cards[q], now); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ------------------------------------------------------------------ nút */
+document.querySelectorAll('.seg [data-sp]').forEach(function(b){
+  b.addEventListener('click', function(){
+    speed = parseFloat(b.getAttribute('data-sp'));
+    document.querySelectorAll('.seg [data-sp]').forEach(function(o){
+      o.setAttribute('aria-pressed', String(o === b));
+    });
+  });
+});
+document.getElementById('btnAll').addEventListener('click', function(){
+  cards.forEach(function(cd){ cd.ph='off'; cd.t0=performance.now(); cd.pulse=-1e9; });
+  cards.forEach(function(cd){ go(cd, 'in'); });
+});
+var btnLoop = document.getElementById('btnLoop');
+btnLoop.setAttribute('aria-pressed', String(looping));
+btnLoop.addEventListener('click', function(){
+  looping = !looping;
+  btnLoop.setAttribute('aria-pressed', String(looping));
+  if(looping) cards.forEach(function(cd){ cd.t0 = performance.now(); });
+});
+
+})();
+</script>

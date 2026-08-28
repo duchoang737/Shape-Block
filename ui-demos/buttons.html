@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cozy Mosaic — bộ nút + thanh trên mới</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#211E1B;color:#E7DFD2;
+     font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:26px 28px 4px;max-width:1180px;margin:0 auto}
+h1{margin:0 0 6px;font:600 24px/1.25 "Segoe UI",system-ui,sans-serif}
+header p{margin:0;color:#9E9384;max-width:80ch}
+main{max-width:1180px;margin:0 auto;padding:18px 28px 60px;
+     display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:20px}
+section{background:#242019;border:1px solid rgba(255,255,255,.08);border-radius:16px;
+        padding:16px 18px 20px}
+section h2{margin:0 0 3px;font:600 14px system-ui;color:#F3ECE0}
+section p{margin:0 0 14px;color:#8E8474;font-size:12.5px}
+.wide{grid-column:1/-1}
+
+/* --------- nền + chữ đúng như game đang dùng ---------------------------- */
+.linen{
+  --linen:#EFE3D0; --paper:#FFFDF8; --ink:#5B4B34; --ink-soft:#A08F76;
+  --line:rgba(91,75,52,.14);
+  background:var(--linen);
+  background-image:radial-gradient(rgba(91,75,52,.035) 1px,transparent 1px),
+                   radial-gradient(rgba(255,255,255,.5) 1px,transparent 1px);
+  background-size:7px 7px,7px 7px; background-position:0 0,3px 3px;
+  color:var(--ink); border-radius:12px; padding:14px 14px 16px;
+}
+
+/* --------- NÚT ẢNH -----------------------------------------------------
+ * Ảnh nào cũng là một hình tròn nằm giữa nền lanh phẳng. Khung nút bo tròn
+ * 50% nên bốn góc lanh bị cắt đi — không phải lo khớp màu nền.
+ * --z chỉnh riêng từng nút vì mỗi lần sinh ảnh cái đĩa to nhỏ khác nhau. */
+.ib{
+  border:0; padding:0; cursor:pointer; background:none;
+  width:var(--d,44px); height:var(--d,44px); border-radius:50%;
+  background-image:var(--img); background-repeat:no-repeat;
+  background-position:center; background-size:calc(100% * var(--z,1.42)) auto;
+  transition:transform .1s, filter .15s;
+}
+.ib:active{ transform:translateY(2px) scale(.96) }
+.ib.off{ filter:grayscale(.6) opacity(.45) }
+
+.i-restart {--img:url("assets/btn/128/restart.png");  --z:1.46}
+.i-settings{--img:url("assets/btn/128/settings.png"); --z:1.22}
+.i-eye     {--img:url("assets/btn/128/eye.png");      --z:1.42}
+.i-gallery {--img:url("assets/btn/128/gallery.png");  --z:1.26}
+.i-sound   {--img:url("assets/btn/128/sound.png");    --z:1.42}
+.i-vibrate {--img:url("assets/btn/128/vibrate.png");  --z:1.24}
+.i-close   {--img:url("assets/btn/128/close.png");    --z:1.24}
+.i-hint    {--img:url("assets/btn/128/hint.png");     --z:1.50}
+.i-undo    {--img:url("assets/btn/128/undo.png");     --z:1.44}
+
+/* --------- thanh trên --------------------------------------------------- */
+.bar{display:flex; align-items:center; gap:10px; padding:6px 4px}
+.lvl{flex:1; text-align:center; line-height:1.05}
+.lvl span{display:block; font:600 9.5px/1 system-ui; letter-spacing:.22em; color:var(--ink-soft)}
+.lvl b{display:block; font:600 25px/1.1 Georgia,"Times New Roman",serif; margin-top:2px}
+
+/* thanh CŨ để đối chiếu */
+.old .nav,.old .mini{
+  border:1px solid var(--line); background:var(--paper); color:var(--ink);
+  border-radius:50%; display:grid; place-items:center; padding:0; cursor:pointer}
+.old .nav{width:34px;height:34px;font-size:17px;box-shadow:0 1px 2px rgba(91,75,52,.1)}
+.old .mini{width:30px;height:30px;font-size:14px;background:transparent}
+
+/* --------- bảng cài đặt ------------------------------------------------- */
+.sheet{background:var(--paper); border-radius:20px; padding:16px 16px 18px;
+       box-shadow:0 10px 26px rgba(91,75,52,.16)}
+.sheet-hd{display:flex; align-items:center; gap:10px; margin-bottom:12px}
+.sheet-hd b{flex:1; text-align:center; font:600 18px Georgia,serif}
+.row{width:100%; background:none; border:0; color:inherit;
+     display:flex; align-items:center; gap:12px; padding:9px 4px; cursor:pointer;
+     border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row b{flex:1; font:600 13.5px system-ui; text-align:left}
+.row em{font:600 12px system-ui; font-style:normal; color:var(--ink-soft)}
+.sw{width:44px;height:26px;border-radius:13px;background:#DCCAAC;position:relative;flex:0 0 auto;
+    transition:background .2s}
+.sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;
+           background:#fff;box-shadow:0 1px 3px rgba(91,75,52,.35);transition:transform .2s}
+.row.on .sw{background:#8CA86E}
+.row.on .sw::after{transform:translateX(18px)}
+
+/* --------- đáy màn ------------------------------------------------------ */
+.tools{display:flex; justify-content:center; gap:34px; padding:10px 0 4px}
+.tool{display:flex; flex-direction:column; align-items:center; gap:6px;
+      background:none; border:0; cursor:pointer; color:var(--ink); padding:0}
+.tool em{font:600 10px system-ui; font-style:normal; opacity:.66}
+
+/* --------- bảng nút thô ------------------------------------------------- */
+.sheetgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:16px}
+.cellb{display:flex; flex-direction:column; align-items:center; gap:8px}
+.cellb small{font:600 10.5px system-ui; letter-spacing:.03em; opacity:.62}
+.sizes{display:flex; align-items:flex-end; gap:10px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Bộ nút mới + thanh trên rút gọn</h1>
+  <p>Nút do <b>codeb</b> sinh (Nano Banana Pro), mỗi nút là một đĩa gốm nằm giữa nền vải lanh
+     phẳng — khung nút bo tròn 50% nên bốn góc bị cắt, không phải lo khớp màu nền.
+     Thanh trên còn đúng ba phần: <b>chơi lại · LEVEL · cài đặt</b>.</p>
+</header>
+
+<main>
+
+  <section class="wide">
+    <h2>Thanh trên</h2>
+    <p>Trên là bản hiện tại (5 nút), dưới là bản mới (3 phần). Cỡ thật, bề ngang 430px như trong game.</p>
+    <div class="linen" style="max-width:430px">
+      <div class="bar old">
+        <button class="nav">‹</button>
+        <div class="lvl"><span>LEVEL</span><b>1</b></div>
+        <button class="mini">👁</button>
+        <button class="mini">⊞</button>
+        <button class="nav">›</button>
+      </div>
+    </div>
+    <div style="height:12px"></div>
+    <div class="linen" style="max-width:430px">
+      <div class="bar">
+        <button class="ib i-restart" style="--d:44px" aria-label="Chơi lại"></button>
+        <div class="lvl"><span>LEVEL</span><b>1</b></div>
+        <button class="ib i-settings" style="--d:44px" aria-label="Cài đặt"></button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Cài đặt — chỗ ở mới của 👁 và ⊞</h2>
+    <p>Nút xem tranh mờ và phòng tranh dọn hết vào đây, kèm âm thanh và rung.</p>
+    <div class="linen">
+      <div class="sheet">
+        <div class="sheet-hd">
+          <span style="width:36px"></span>
+          <b>Cài đặt</b>
+          <button class="ib i-close" style="--d:36px" aria-label="Đóng"></button>
+        </div>
+        <button class="row on">
+          <span class="ib i-eye" style="--d:38px"></span>
+          <b>Xem tranh mờ dẫn đường</b><span class="sw"></span>
+        </button>
+        <button class="row">
+          <span class="ib i-gallery" style="--d:38px"></span>
+          <b>Phòng tranh</b><em>6 / 16 bức ›</em>
+        </button>
+        <button class="row on">
+          <span class="ib i-sound" style="--d:38px"></span>
+          <b>Âm thanh</b><span class="sw"></span>
+        </button>
+        <button class="row on">
+          <span class="ib i-vibrate" style="--d:38px"></span>
+          <b>Rung</b><span class="sw"></span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Đáy màn</h2>
+    <p>Chơi lại đã lên thanh trên nên dưới này chỉ còn hai nút — hết trùng chức năng.</p>
+    <div class="linen" style="padding-top:22px;padding-bottom:22px">
+      <div class="tools">
+        <button class="tool"><span class="ib i-hint" style="--d:54px"></span><em>Gợi ý</em></button>
+        <button class="tool"><span class="ib i-undo" style="--d:54px"></span><em>Hoàn tác</em></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="wide">
+    <h2>Cả bộ 9 nút</h2>
+    <p>Mỗi ô: cỡ lớn 84px và cỡ dùng thật 44px. Tên file nằm dưới.</p>
+    <div class="linen">
+      <div class="sheetgrid">
+        <div class="cellb"><div class="sizes"><span class="ib i-restart"  style="--d:84px"></span><span class="ib i-restart"  style="--d:44px"></span></div><small>restart</small></div>
+        <div class="cellb"><div class="sizes"><span class="ib i-settings" style="--d:84px"></span><span class="ib i-settings" style="--d:44px"></span></div><small>settings</small></div>
+        <div class="cellb"><div class="sizes"><span class="ib i-eye"      style="--d:84px"></span><span class="ib i-eye"      style="--d:44px"></span></div><small>eye</small></div>
+        <div class="cellb"><div class="sizes"><span class="ib i-gallery"  style="--d:84px"></span><span class="ib i-gallery"  style="--d:44px"></span></div><small>gallery</small></div>
+        <div class="cellb"><div class="sizes"><span class="ib i-sound"    style="--d:84px"></span><span class="ib i-sound"    style="--d:44px"></span></div><small>sound</small></div>
+        <div class="cellb"><div class="sizes"><span class="ib i-vibrate"  style="--d:84px"></span><span class="ib i-vibrate"  style="--d:44px"></span></div><small>vibrate</small></div>
+        <div class="cellb"><div class="sizes"><span class="ib i-close"    style="--d:84px"></span><span class="ib i-close"    style="--d:44px"></span></div><small>close</small></div>
+        <div class="cellb"><div class="sizes"><span class="ib i-hint"     style="--d:84px"></span><span class="ib i-hint"     style="--d:44px"></span></div><small>hint</small></div>
+        <div class="cellb"><div class="sizes"><span class="ib i-undo"     style="--d:84px"></span><span class="ib i-undo"     style="--d:44px"></span></div><small>undo</small></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>
