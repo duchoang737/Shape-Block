@@ -8,7 +8,17 @@
     --line:rgba(91,75,52,.14);
   }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body{ margin:0; height:100%; overflow:hidden; }
+  html,body{
+    margin:0; height:100%; overflow:hidden;
+    /* Android Chrome: kéo xuống ở đỉnh trang = TẢI LẠI. Đang kéo một khối lên
+     * trên mà lỡ chạm mép là mất sạch ván. `none` chặn cả cái đó lẫn cú nảy
+     * cao su ở iOS. */
+    overscroll-behavior:none;
+    /* Bỏ độ trễ 300 ms và cú phóng to khi chạm hai lần. `user-scalable=no`
+     * trong meta viewport bị iOS Safari lờ đi, cái này thì không. */
+    touch-action:manipulation;
+    -webkit-touch-callout:none;        /* nhấn giữ không bung menu sao chép */
+  }
   body{
     background:var(--linen);
     background-image:
@@ -24,6 +34,29 @@
 
   #app{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
         padding:calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)); }
+  /* `inset:0` trên di động đo theo khung LỚN — khung lúc thanh địa chỉ đã ẩn.
+   * Thanh còn hiện thì đáy trang nằm khuất dưới nó, đúng chỗ đặt khay. `dvh`
+   * là chiều cao ĐANG THẤY, co giãn theo thanh địa chỉ.
+   * Để sau `inset:0` nên trình duyệt cũ không hiểu `dvh` vẫn chạy như cũ. */
+  @supports (height: 100dvh){
+    #app{ height:100dvh; }
+  }
+
+  /* Xoay ngang thì bàn cờ dẹp lét mà khay chiếm hết chỗ — bảo người chơi xoay
+   * dọc lại. Chỉ bắt máy THẤP (điện thoại nằm ngang), không bắt máy tính bảng
+   * hay màn hình rộng. */
+  #rotate{ display:none; }
+  @media (orientation:landscape) and (max-height:520px){
+    #app{ display:none; }
+    #rotate{
+      display:flex; position:fixed; inset:0; z-index:60;
+      flex-direction:column; align-items:center; justify-content:center; gap:14px;
+      background:var(--linen); color:var(--ink-soft);
+      font:600 15px/1.5 "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+      text-align:center; padding:24px;
+    }
+    #rotate b{ font-size:34px; }
+  }
 
   /* Doc §06: "nền linen ấm, BOARD là card giấy trắng". Card giấy chỉ bọc riêng
    * board — phần còn lại là nền linen, nên chỗ trống đọc ra là lề trang chứ
@@ -243,6 +276,7 @@
   </div>
 </div>
 
+<div id="rotate"><b>📱</b><span>Xoay dọc điện thoại để chơi nhé</span></div>
 <canvas id="dragLayer"></canvas>
 
 <div class="ov" id="win">
