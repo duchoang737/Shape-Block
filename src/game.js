@@ -72,6 +72,7 @@
     G.placements = new Map(); G.nextPid = 1; G.filled = 0;
     G.history = []; G.drag = null; G.pending = null; G.hintChip = -1; G.sel = -1;
     G.solved = false; G.solvedAt = 0; G.revealT = 0;
+    if(window.Confetti) window.Confetti.clear();   // sang màn khác thì tắt pháo
     if(window.FX) window.FX.clear();     // đổi màn: bỏ hết hiệu ứng còn dở
 
     /* CHƠI THEO VÙNG — HIỆN CHỈ BẬT Ở MÀN 11.
@@ -402,6 +403,14 @@
     G.done.add(G.index);
     save(); syncHud();
     sfx('win');
+    /* PHÁO GIẤY: loạt đầu nổ ngay cùng tiếng thắng, loạt hai sau 0,55 s.
+     * Hai loạt chứ không phải một loạt to — một loạt thì đỉnh điểm qua mất
+     * trước khi bức tranh kịp lên màu xong (mất REVEAL_MS), hai loạt kéo dài
+     * đúng qua cú loang màu. */
+    if(window.Confetti){
+      window.Confetti.burst();
+      setTimeout(function(){ if(G.solved) window.Confetti.burst(); }, 550);
+    }
     setTimeout(showWin, REVEAL_MS + 350);
   }
 
@@ -755,6 +764,10 @@
     if(G.solved && G.revealT < 1) G.revealT = Math.min(1, (now - G.solvedAt)/REVEAL_MS);
     window.R.draw(now);
     window.R.drawDrag();
+    /* SAU drawDrag: hàm đó xoá sạch #dragLayer và đặt sẵn phép biến đổi theo
+     * DPR mỗi khung, nên pháo giấy vẽ ở đây là nằm trên cùng và dùng luôn toạ
+     * độ pixel CSS. */
+    if(window.Confetti) window.Confetti.draw(now);
     requestAnimationFrame(frame);
   }
 
